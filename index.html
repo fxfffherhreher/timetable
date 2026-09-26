@@ -19,6 +19,7 @@
   --uni:#4655CF; --road:#9AA3AD; --gym:#DA4F2B; --pool:#1692BD; --food:#C98E12;
   --study:#23905F; --rest:#8E78C4; --chores:#A95D84; --sleep:#3E4B5D; --other:#6F7C87;
   --accent:#DA4F2B; --danger:#C2352A;
+  --p1:#D93A2F; --p2:#E09A12; --p3:#3C8FD6;
   --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
@@ -28,7 +29,7 @@
     --bg:#111417; --card:#1A1E22; --ink:#E6E9EB; --muted:#98A1A9; --line:#2A3036; --soft:#23282D;
     --uni:#7D89F0; --road:#79828C; --gym:#F07651; --pool:#43B8DE; --food:#E3AE3C;
     --study:#4CC08A; --rest:#AE9BE3; --chores:#D286AC; --sleep:#8795AB; --other:#9AA6B0;
-    --accent:#F07651; --danger:#F0695C;
+    --accent:#F07651; --danger:#F0695C; --p1:#F2665A; --p2:#EDB43E; --p3:#6AAEEA;
   }
 }
 :root[data-theme="dark"]{
@@ -36,7 +37,7 @@
   --bg:#111417; --card:#1A1E22; --ink:#E6E9EB; --muted:#98A1A9; --line:#2A3036; --soft:#23282D;
   --uni:#7D89F0; --road:#79828C; --gym:#F07651; --pool:#43B8DE; --food:#E3AE3C;
   --study:#4CC08A; --rest:#AE9BE3; --chores:#D286AC; --sleep:#8795AB; --other:#9AA6B0;
-  --accent:#F07651; --danger:#F0695C;
+  --accent:#F07651; --danger:#F0695C; --p1:#F2665A; --p2:#EDB43E; --p3:#6AAEEA;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0}
@@ -123,6 +124,32 @@ nav.tabs button[aria-current="page"]{color:var(--ink)}
 .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--c);margin-right:5px;vertical-align:-1px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;z-index:30;font-size:14px}
+.check{border-color:var(--pc,var(--muted))}
+.check.on{background:var(--pc,var(--study));border-color:var(--pc,var(--study))}
+.prio{display:flex;gap:6px}
+.prio button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 4px;font-size:13px;font-weight:650;display:flex;align-items:center;justify-content:center;gap:6px}
+.prio button i{width:10px;height:10px;border-radius:50%;background:var(--pc)}
+.prio button[aria-pressed="true"]{border-color:var(--pc);background:color-mix(in srgb,var(--pc) 14%,var(--card))}
+.cal{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 10px}
+.calnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.calnav button{background:none;border:0;font-size:22px;padding:4px 12px;color:var(--ink)}
+.calnav b{font-size:17px}
+.calgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.calgrid .wd{text-align:center;font-size:12px;color:var(--muted);font-weight:600;padding-bottom:4px}
+.cell{border:1px solid transparent;background:var(--bg);border-radius:10px;min-height:64px;padding:5px 4px 6px;display:flex;flex-direction:column;align-items:stretch;gap:3px;text-align:center}
+.cell .n{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.3}
+.cell.out{opacity:.4}
+.cell.today .n{color:var(--accent)}
+.cell.today{border-color:var(--accent)}
+.cell.sel{background:var(--ink);color:var(--bg)}
+.cell.sel.today .n{color:var(--bg)}
+.cell .b{height:4px;border-radius:2px;background:var(--pc)}
+.cell .b.dn{opacity:.3}
+.cell .more{font-size:10px;font-weight:700;color:var(--muted);line-height:1}
+.cell.sel .more{color:var(--bg)}
+.plegend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:10px;justify-content:center}
+.plegend span{display:flex;align-items:center;gap:6px}
+.plegend i{width:14px;height:4px;border-radius:2px;background:var(--pc)}
 .empty{padding:18px 14px;color:var(--muted);text-align:center}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.5}}}
 @media (max-width:400px){.ev{grid-template-columns:76px 4px 1fr auto;gap:10px;padding:11px 12px}.ev .t{font-size:11.5px}}
@@ -230,7 +257,7 @@ function hasDetails(e){return !!((e.ref&&DB.plans[e.ref])||(e.details&&e.details
 function taskRow(t){
   const today=isoDate(new Date());
   const late=t.due&&!t.done&&t.due<today;
-  return `<li class="task ${t.done?"done":""}">
+  return `<li class="task ${t.done?"done":""}" style="--pc:var(--p${t.pr||2})">
     <button class="check ${t.done?"on":""}" data-tog="${t.id}" aria-label="${t.done?"Вернуть":"Выполнено"}"></button>
     <button class="txt" data-edittask="${t.id}"><div>${esc(t.text)}</div>${t.due?`<div class="due ${late?"late":""}">${fmtDate(t.due)}${late?" · просрочено":""}</div>`:""}</button>
     <button class="x" data-deltask="${t.id}" aria-label="Удалить">×</button></li>`;
@@ -383,10 +410,52 @@ function openEventEditor(id){
 }
 
 /* ================== ЗАДАЧИ ================== */
+const PRIO={1:"Высокий",2:"Средний",3:"Низкий"};
+function prioPicker(id,val){return `<div class="prio" id="${id}" role="group" aria-label="Приоритет">${[1,2,3].map(n=>`<button type="button" data-pr="${n}" style="--pc:var(--p${n})" aria-pressed="${val===n}"><i></i>${PRIO[n]}</button>`).join("")}</div>`}
+function bindPrio(id,get,set){document.querySelectorAll(`#${id} [data-pr]`).forEach(b=>b.onclick=()=>{set(+b.dataset.pr);document.querySelectorAll(`#${id} [data-pr]`).forEach(x=>x.setAttribute("aria-pressed",+x.dataset.pr===get()))})}
+const MONTHS=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const MONTHS_GEN=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
 function renderTasks(){
   const today=isoDate(new Date());
+  if(!UI.tview)UI.tview="list";
+  if(UI.newPr==null)UI.newPr=2;
+  if(!UI.selDay)UI.selDay=today;
+  if(UI.mY==null){const d=new Date();UI.mY=d.getFullYear();UI.mM=d.getMonth()}
+  const month=UI.tview==="month";
+  $("#app").innerHTML=`
+    <div class="row between"><h1>Задачи</h1>
+      <div class="row" role="group" aria-label="Вид"><button class="pill" id="v-list" aria-pressed="${!month}">Список</button><button class="pill" id="v-month" aria-pressed="${month}">Месяц</button></div></div>
+    <form class="card" id="tf" style="display:flex;flex-direction:column;gap:10px">
+      <div class="addtask"><input type="text" id="t-text" placeholder="${month?"Задача на "+fmtLong(UI.selDay):"Что сделать?"}" autocomplete="off"><button class="btn primary" type="submit">Добавить</button></div>
+      ${prioPicker("t-pr",UI.newPr)}
+      ${month?"":`<div class="small muted" style="display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center"><label for="t-due">Срок</label><input type="date" id="t-due" style="min-width:0">
+        <button type="button" class="link" id="t-today">сегодня</button><button type="button" class="link" id="t-tom">завтра</button></div>`}
+    </form>
+    ${month?monthHTML(today):listHTML(today)}`;
+  $("#v-list").onclick=()=>{UI.tview="list";render()};
+  $("#v-month").onclick=()=>{UI.tview="month";render()};
+  bindPrio("t-pr",()=>UI.newPr,v=>UI.newPr=v);
+  $("#tf").onsubmit=ev=>{ev.preventDefault();const text=$("#t-text").value.trim();if(!text)return;
+    const due=month?UI.selDay:($("#t-due").value||null);
+    DB.tasks.push({id:uid(),text,due,pr:UI.newPr,done:false,created:Date.now(),updated:Date.now()});save();render();setTimeout(()=>$("#t-text")&&$("#t-text").focus(),0)};
+  if(!month){
+    $("#t-today").onclick=()=>{$("#t-due").value=today};
+    $("#t-tom").onclick=()=>{const d=new Date();d.setDate(d.getDate()+1);$("#t-due").value=isoDate(d)};
+    const sd=$("#t-showdone");if(sd)sd.onclick=()=>{UI.showDone=!UI.showDone;render()};
+    const cl=$("#t-clear");if(cl)cl.onclick=()=>{delTasks(DB.tasks.filter(t=>t.done).map(t=>t.id));save();render();toast("Выполненные удалены")};
+  }else{
+    $("#m-prev").onclick=()=>{UI.mM--;if(UI.mM<0){UI.mM=11;UI.mY--}render()};
+    $("#m-next").onclick=()=>{UI.mM++;if(UI.mM>11){UI.mM=0;UI.mY++}render()};
+    $("#app").querySelectorAll("[data-day]").forEach(b=>b.onclick=()=>{UI.selDay=b.dataset.day;const[y,m]=UI.selDay.split("-").map(Number);UI.mY=y;UI.mM=m-1;render()});
+    const mt=$("#m-today");if(mt)mt.onclick=()=>{const d=new Date();UI.mY=d.getFullYear();UI.mM=d.getMonth();UI.selDay=today;render()};
+  }
+  bindTaskRows($("#app"));
+}
+function fmtLong(iso){const[y,m,d]=iso.split("-").map(Number);return `${d} ${MONTHS_GEN[m-1]}`}
+const byPr=(a,b)=>(a.done-b.done)||((a.pr||2)-(b.pr||2))||a.created-b.created;
+function listHTML(today){
   const open=DB.tasks.filter(t=>!t.done);
-  const byDue=(a,b)=>(a.due||"9999").localeCompare(b.due||"9999")||a.created-b.created;
+  const byDue=(a,b)=>(a.due||"9999").localeCompare(b.due||"9999")||((a.pr||2)-(b.pr||2))||a.created-b.created;
   const groups=[
     ["Просрочено",open.filter(t=>t.due&&t.due<today)],
     ["Сегодня",open.filter(t=>t.due===today)],
@@ -394,32 +463,44 @@ function renderTasks(){
     ["Без срока",open.filter(t=>!t.due)]
   ].filter(g=>g[1].length);
   const done=DB.tasks.filter(t=>t.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
-  $("#app").innerHTML=`
-    <h1>Задачи</h1>
-    <form class="card" id="tf" style="display:flex;flex-direction:column;gap:10px">
-      <div class="addtask"><input type="text" id="t-text" placeholder="Что сделать?" autocomplete="off"><button class="btn primary" type="submit">Добавить</button></div>
-      <div class="small muted" style="display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center"><label for="t-due">Срок</label><input type="date" id="t-due" style="min-width:0">
-        <button type="button" class="link" id="t-today">сегодня</button><button type="button" class="link" id="t-tom">завтра</button></div>
-    </form>
-    ${groups.length?groups.map(([n,list])=>`<div class="group-title">${n}</div><ul class="list">${list.sort(byDue).map(taskRow).join("")}</ul>`).join(""):`<div class="card empty">Задач нет. Добавь первую сверху.</div>`}
+  return `${groups.length?groups.map(([n,list])=>`<div class="group-title">${n}</div><ul class="list">${list.sort(byDue).map(taskRow).join("")}</ul>`).join(""):`<div class="card empty">Задач нет. Добавь первую сверху.</div>`}
     ${done.length?`<button class="link" id="t-showdone">${UI.showDone?"Скрыть":"Показать"} выполненные (${done.length})</button>
       ${UI.showDone?`<ul class="list">${done.map(taskRow).join("")}</ul><button class="link" id="t-clear" style="color:var(--danger)">Удалить все выполненные</button>`:""}`:""}`;
-  $("#tf").onsubmit=ev=>{ev.preventDefault();const text=$("#t-text").value.trim();if(!text)return;
-    DB.tasks.push({id:uid(),text,due:$("#t-due").value||null,done:false,created:Date.now(),updated:Date.now()});save();render();setTimeout(()=>$("#t-text")&&$("#t-text").focus(),0)};
-  $("#t-today").onclick=()=>{$("#t-due").value=today};
-  $("#t-tom").onclick=()=>{const d=new Date();d.setDate(d.getDate()+1);$("#t-due").value=isoDate(d)};
-  const sd=$("#t-showdone");if(sd)sd.onclick=()=>{UI.showDone=!UI.showDone;render()};
-  const cl=$("#t-clear");if(cl)cl.onclick=()=>{delTasks(DB.tasks.filter(t=>t.done).map(t=>t.id));save();render();toast("Выполненные удалены")};
-  bindTaskRows($("#app"));
+}
+function monthHTML(today){
+  const y=UI.mY,m=UI.mM;
+  const first=new Date(y,m,1);const start=new Date(y,m,1-((first.getDay()+6)%7));
+  const last=new Date(y,m+1,0);const cells=Math.ceil((((first.getDay()+6)%7)+last.getDate())/7)*7;
+  const byDay={};DB.tasks.forEach(t=>{if(t.due)(byDay[t.due]=byDay[t.due]||[]).push(t)});
+  let grid=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(d=>`<div class="wd">${d}</div>`).join("");
+  for(let i=0;i<cells;i++){
+    const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);const iso=isoDate(d);
+    const list=(byDay[iso]||[]).sort(byPr);const show=list.slice(0,4);
+    const cls=["cell",d.getMonth()!==m?"out":"",iso===today?"today":"",iso===UI.selDay?"sel":""].join(" ");
+    grid+=`<button class="${cls}" data-day="${iso}" aria-label="${d.getDate()} ${MONTHS_GEN[d.getMonth()]}, задач: ${list.length}">
+      <span class="n">${d.getDate()}</span>${show.map(t=>`<span class="b ${t.done?"dn":""}" style="--pc:var(--p${t.pr||2})"></span>`).join("")}${list.length>4?`<span class="more">+${list.length-4}</span>`:""}</button>`;
+  }
+  const sel=(byDay[UI.selDay]||[]).sort(byPr);
+  const isCur=(()=>{const d=new Date();return d.getFullYear()===y&&d.getMonth()===m&&UI.selDay===today})();
+  return `<div class="cal">
+      <div class="calnav"><button id="m-prev" aria-label="Предыдущий месяц">‹</button><b>${MONTHS[m]} ${y}</b><button id="m-next" aria-label="Следующий месяц">›</button></div>
+      <div class="calgrid">${grid}</div>
+      <div class="plegend">${[1,2,3].map(n=>`<span style="--pc:var(--p${n})"><i></i>${PRIO[n]}</span>`).join("")}</div>
+    </div>
+    <div class="row between"><h2>${fmtLong(UI.selDay)}${UI.selDay===today?" · сегодня":""}</h2>${isCur?"":`<button class="link" id="m-today">Сегодня</button>`}</div>
+    ${sel.length?`<ul class="list">${sel.map(taskRow).join("")}</ul>`:`<div class="card empty">На этот день задач нет</div>`}`;
 }
 function openTaskEditor(id){
   const t=DB.tasks.find(x=>x.id===id);if(!t)return;
+  let pr=t.pr||2;
   sheet(`<h2>Задача</h2>
     <div class="field"><label for="e-text">Текст</label><input type="text" id="e-text" value="${esc(t.text)}"></div>
+    <div class="field"><label>Приоритет</label>${prioPicker("e-pr",pr)}</div>
     <div class="field"><label for="e-due">Срок</label><input type="date" id="e-due" value="${t.due||""}"></div>
     <div class="field"><label for="e-note">Заметка</label><textarea id="e-note" style="min-height:110px;font-family:var(--body)">${esc(t.note||"")}</textarea></div>
     <button class="btn primary block" id="e-save">Сохранить</button>`,()=>{
-    $("#e-save").onclick=()=>{t.text=$("#e-text").value.trim()||t.text;t.due=$("#e-due").value||null;t.note=$("#e-note").value;t.updated=Date.now();save();closeSheet();render()};
+    bindPrio("e-pr",()=>pr,v=>pr=v);
+    $("#e-save").onclick=()=>{t.text=$("#e-text").value.trim()||t.text;t.due=$("#e-due").value||null;t.note=$("#e-note").value;t.pr=pr;t.updated=Date.now();save();closeSheet();render()};
   });
 }
 
