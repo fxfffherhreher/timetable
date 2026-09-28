@@ -102,7 +102,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .field label{font-size:13px;font-weight:650;color:var(--muted)}
 input[type=text],input[type=time],input[type=date],select,textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:11px 12px;font-size:16px}
 textarea{min-height:220px;resize:vertical;font-family:var(--mono);font-size:14px;line-height:1.5}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
 .plans .ev{grid-template-columns:4px 1fr auto}
 .md h3{font-size:16px;margin:16px 0 6px}
 .md h3:first-child{margin-top:0}
@@ -201,7 +201,8 @@ function normalize(d){
 }
 function saveSched(){DB.schedAt=Date.now();save()}
 function delTasks(ids){const now=Date.now();ids.forEach(id=>{DB.deletedTasks[id]=now});DB.tasks=DB.tasks.filter(t=>!ids.includes(t.id))}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){toast("Не удалось сохранить")}}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){toast("Не удалось сохранить")}}
+function save(){saveLocal();scheduleSync()}
 load();
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 
@@ -669,6 +670,7 @@ function renderMore(){
     <div class="card"><h3>Чётность недель</h3>
       <p class="small muted" style="margin:0 0 10px">Сейчас приложение считает эту неделю <b>${weekOf(new Date())==="odd"?"нечётной":"чётной"}</b>. Если в вузе наоборот — поменяй.</p>
       <label class="row"><input type="checkbox" id="m-inv" ${DB.settings.invert?"checked":""}> Поменять чётную и нечётную местами</label></div>
+    ${syncCardHTML()}
     <div class="card"><h3>Резервная копия</h3>
       <p class="small muted" style="margin:0 0 10px">Всё хранится только на этом устройстве. Копия — один файл с расписанием, планами и задачами. Переноси его между айфоном и макбуком через AirDrop или iCloud Drive.<br><br>При загрузке задачи с обоих устройств <b>объединяются</b>, ничего не теряется. Расписание и планы берутся из того места, где их меняли последними.</p>
       <div class="grid2"><button class="btn" id="m-exp">Сохранить копию</button><button class="btn" id="m-imp">Загрузить копию</button></div>
@@ -677,6 +679,7 @@ function renderMore(){
       <li>Открой эту страницу в Safari</li><li>Нажми «Поделиться» (квадрат со стрелкой)</li><li>Выбери «На экран Домой»</li><li>Дальше открывай только с иконки: у неё свои данные, отдельно от Safari</li></ol></div>`}
     <p class="small muted" style="text-align:center">Работает без интернета</p>`;
   $("#m-inv").onchange=e=>{DB.settings.invert=e.target.checked;DB.settings.at=Date.now();save();UI.w=weekOf(new Date());render()};
+  bindSyncCard();
   $("#m-exp").onclick=exportData;
   $("#m-imp").onclick=()=>$("#m-file").click();
   $("#m-file").onchange=importData;
@@ -733,11 +736,76 @@ function showImportResult(lines){
     <button class="btn primary block" id="ir-ok">Готово</button>`,()=>{$("#ir-ok").onclick=closeSheet});
 }
 
+/* ================== СИНХРОНИЗАЦИЯ ==================
+   Настройки сервера хранятся отдельно от данных и в копию не попадают. */
+const SYNC_KEY="moya-nedelya-sync";
+let SYNC={url:"",token:"",lastAt:0,lastErr:"",busy:false};
+try{Object.assign(SYNC,JSON.parse(localStorage.getItem(SYNC_KEY)||"{}"));SYNC.busy=false}catch(e){}
+const syncOn=()=>!!(SYNC.url&&SYNC.token);
+function saveSyncCfg(){try{const{busy,...rest}=SYNC;localStorage.setItem(SYNC_KEY,JSON.stringify(rest))}catch(e){}}
+let syncTimer=null,syncAgain=false;
+function scheduleSync(){if(!syncOn())return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncNow(false),3000)}
+async function syncNow(manual){
+  if(!syncOn()){if(manual)toast("Сначала укажи адрес и токен");return false}
+  if(SYNC.busy){syncAgain=true;return false}
+  if(!navigator.onLine){SYNC.lastErr="Нет интернета";saveSyncCfg();refreshSyncStatus();return false}
+  SYNC.busy=true;refreshSyncStatus();
+  const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),12000);
+  try{
+    const r=await fetch(SYNC.url.replace(/\/+$/,"")+"/api/sync",{method:"POST",signal:ctrl.signal,
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+SYNC.token},body:JSON.stringify(DB)});
+    if(r.status===401)throw new Error("Неверный токен");
+    if(!r.ok)throw new Error("Сервер ответил "+r.status);
+    const server=normalize(await r.json());
+    const before=JSON.stringify(DB);
+    mergeIn(server);saveLocal();
+    SYNC.lastAt=Date.now();SYNC.lastErr="";
+    if(JSON.stringify(DB)!==before&&!$("#layer").innerHTML)render();
+    if(manual)toast("Синхронизировано");
+    return true;
+  }catch(e){
+    SYNC.lastErr=e.name==="AbortError"?"Сервер не отвечает":(e.message==="Failed to fetch"||e.message==="Load failed"?"Сервер недоступен":e.message);
+    if(manual)toast(SYNC.lastErr);
+    return false;
+  }finally{
+    clearTimeout(to);SYNC.busy=false;saveSyncCfg();refreshSyncStatus();
+    if(syncAgain){syncAgain=false;scheduleSync()}
+  }
+}
+function syncStatusText(){
+  if(!syncOn())return"Выключена. Приложение работает только с данными на этом устройстве.";
+  if(SYNC.busy)return"Синхронизация…";
+  const when=SYNC.lastAt?new Date(SYNC.lastAt).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"ещё не было";
+  return (SYNC.lastErr?`Ошибка: ${SYNC.lastErr}. `:"")+`Последняя удачная: ${when}`;
+}
+function refreshSyncStatus(){const el=$("#sync-status");if(el){el.textContent=syncStatusText();el.style.color=SYNC.lastErr&&syncOn()?"var(--danger)":""}}
+function syncCardHTML(){
+  return `<div class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="margin:0">Синхронизация</h3>
+    <p class="small muted" style="margin:0">Свой сервер синхронизирует расписание и задачи между айфоном и макбуком. Без сервера всё работает как раньше.</p>
+    <div class="field"><label for="s-url">Адрес сервера</label><input type="text" id="s-url" inputmode="url" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="https://имя-пк.tailnet.ts.net" value="${esc(SYNC.url)}"></div>
+    <div class="field"><label for="s-token">Токен</label><input type="text" id="s-token" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="из файла .env на сервере" value="${esc(SYNC.token)}"></div>
+    <div class="grid2"><button class="btn primary" id="s-save">Подключить</button><button class="btn" id="s-now" ${syncOn()?"":"disabled"}>Синхр. сейчас</button></div>
+    <div class="small" id="sync-status"></div>
+    ${syncOn()?`<button class="link" id="s-off" style="align-self:flex-start;color:var(--danger)">Отключить синхронизацию на этом устройстве</button>`:""}</div>`;
+}
+function bindSyncCard(){
+  refreshSyncStatus();
+  $("#s-save").onclick=async()=>{
+    SYNC.url=$("#s-url").value.trim();SYNC.token=$("#s-token").value.trim();SYNC.lastErr="";saveSyncCfg();
+    if(!syncOn()){toast("Заполни оба поля");return}
+    const ok=await syncNow(true);render();
+  };
+  $("#s-now").onclick=()=>syncNow(true);
+  const off=$("#s-off");if(off)off.onclick=()=>{SYNC={url:"",token:"",lastAt:0,lastErr:"",busy:false};saveSyncCfg();render();toast("Синхронизация отключена")};
+}
+
 /* ================== СТАРТ ================== */
 render();
 // обновлять «сейчас» раз в минуту и при возврате в приложение
 setInterval(()=>{if(UI.tab==="sched"&&!$("#layer").innerHTML)render()},60000);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!$("#layer").innerHTML){render()}});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){if(!$("#layer").innerHTML)render();syncNow(false)}});
+window.addEventListener("online",()=>syncNow(false));
+syncNow(false);
 
 if("serviceWorker" in navigator&&location.protocol==="https:"){
   try{navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
