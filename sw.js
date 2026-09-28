@@ -1,5 +1,5 @@
 // Офлайн-кэш приложения «Моя неделя». Меняй VERSION при обновлении файлов.
-const VERSION = "nedelya-v3";
+const VERSION = "nedelya-v4";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {

@@ -17,7 +17,7 @@
   color-scheme:light;
   --bg:#F2F3EF; --card:#FFFFFF; --ink:#1B2127; --muted:#5C6670; --line:#DCE0DA; --soft:#E8EAE5;
   --uni:#4655CF; --road:#9AA3AD; --gym:#DA4F2B; --pool:#1692BD; --food:#C98E12;
-  --study:#23905F; --rest:#8E78C4; --chores:#A95D84; --sleep:#3E4B5D; --other:#6F7C87;
+  --study:#23905F; --rest:#8E78C4; --chores:#A95D84; --sleep:#3E4B5D; --drive:#C7348A; --other:#6F7C87;
   --accent:#DA4F2B; --danger:#C2352A;
   --p1:#D93A2F; --p2:#E09A12; --p3:#3C8FD6;
   --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
@@ -28,7 +28,7 @@
     color-scheme:dark;
     --bg:#111417; --card:#1A1E22; --ink:#E6E9EB; --muted:#98A1A9; --line:#2A3036; --soft:#23282D;
     --uni:#7D89F0; --road:#79828C; --gym:#F07651; --pool:#43B8DE; --food:#E3AE3C;
-    --study:#4CC08A; --rest:#AE9BE3; --chores:#D286AC; --sleep:#8795AB; --other:#9AA6B0;
+    --study:#4CC08A; --rest:#AE9BE3; --chores:#D286AC; --sleep:#8795AB; --drive:#EC6DB6; --other:#9AA6B0;
     --accent:#F07651; --danger:#F0695C; --p1:#F2665A; --p2:#EDB43E; --p3:#6AAEEA;
   }
 }
@@ -36,7 +36,7 @@
   color-scheme:dark;
   --bg:#111417; --card:#1A1E22; --ink:#E6E9EB; --muted:#98A1A9; --line:#2A3036; --soft:#23282D;
   --uni:#7D89F0; --road:#79828C; --gym:#F07651; --pool:#43B8DE; --food:#E3AE3C;
-  --study:#4CC08A; --rest:#AE9BE3; --chores:#D286AC; --sleep:#8795AB; --other:#9AA6B0;
+  --study:#4CC08A; --rest:#AE9BE3; --chores:#D286AC; --sleep:#8795AB; --drive:#EC6DB6; --other:#9AA6B0;
   --accent:#F07651; --danger:#F0695C; --p1:#F2665A; --p2:#EDB43E; --p3:#6AAEEA;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -62,6 +62,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .link{background:none;border:0;color:var(--accent);font-weight:650;padding:6px 0}
 .days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .days button{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:7px 0 6px;display:flex;flex-direction:column;align-items:center;gap:1px;font-weight:650;position:relative}
+.weeknav{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.weeknav>button{background:none;border:0;font-size:24px;padding:2px 12px;color:var(--ink)}
+.weeknav .wklabel{font-size:15px;font-weight:700;padding:6px 8px;border-radius:10px}
+.days .dnum{font-size:17px;font-weight:750;line-height:1.15;font-variant-numeric:tabular-nums}
+.days .dots{display:flex;gap:3px;justify-content:center;min-height:6px;margin-top:2px}
+.days .dots i{width:6px;height:6px;border-radius:50%;background:var(--c)}
 .days button span{font-size:10.5px;font-weight:500;color:var(--muted)}
 .days button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .days button[aria-pressed="true"] span{color:var(--bg);opacity:.75}
@@ -166,7 +172,7 @@ nav.tabs button[aria-current="page"]{color:var(--ink)}
 const TYPES={
   uni:["Вуз","--uni"],road:["Дорога","--road"],gym:["Зал","--gym"],pool:["Бассейн","--pool"],
   food:["Еда","--food"],study:["Учёба","--study"],rest:["Отдых","--rest"],chores:["Дела","--chores"],
-  sleep:["Сон","--sleep"],other:["Другое","--other"]
+  drive:["Вождение","--drive"],sleep:["Сон","--sleep"],other:["Другое","--other"]
 };
 const DN=["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
 const DFULL=["Понедельник","Вторник","Среда","Четверг","Пятница","Суббота","Воскресенье"];
@@ -178,7 +184,7 @@ const KEY="moya-nedelya-v1";
 const uid=()=>Math.random().toString(36).slice(2,10);
 const emptyWeek=()=>Array.from({length:7},()=>[]);
 function makeDefault(){
-  return{v:2,weeks:{odd:emptyWeek(),even:emptyWeek()},plans:{},tasks:[],deletedTasks:{},settings:{invert:false},schedAt:0};
+  return{v:2,weeks:{odd:emptyWeek(),even:emptyWeek()},dated:{},plans:{},tasks:[],deletedTasks:{},settings:{invert:false},schedAt:0};
 }
 function isEmptySchedule(){return !DB.weeks.odd.some(d=>d.length)&&!DB.weeks.even.some(d=>d.length)}
 let DB;
@@ -189,7 +195,7 @@ function load(){
 function normalize(d){
   const b=makeDefault();
   d.weeks=d.weeks||b.weeks;d.plans=d.plans||{};d.tasks=d.tasks||[];d.deletedTasks=d.deletedTasks||{};
-  d.settings=d.settings||b.settings;d.schedAt=d.schedAt||0;
+  d.settings=d.settings||b.settings;d.dated=d.dated||{};d.schedAt=d.schedAt||0;
   d.tasks.forEach(t=>{if(!t.updated)t.updated=t.doneAt||t.created||0});
   return d;
 }
@@ -275,15 +281,22 @@ function bindTaskRows(root){
   root.querySelectorAll("[data-edittask]").forEach(b=>b.onclick=()=>openTaskEditor(b.dataset.edittask));
 }
 
+/* ---------- календарь: день = шаблон недели или отдельно изменённый день ---------- */
+const MON_GEN=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const MON_NOM=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const parseISO=iso=>{const[y,m,d]=iso.split("-").map(Number);return new Date(y,m-1,d)};
+const addDays=(iso,n)=>{const d=parseISO(iso);d.setDate(d.getDate()+n);return isoDate(d)};
+const wdOf=iso=>(parseISO(iso).getDay()+6)%7;
+function dayInfo(iso){
+  const w=weekOf(parseISO(iso)),d=wdOf(iso);
+  if(DB.dated[iso])return{list:DB.dated[iso],own:true,w,d};
+  return{list:DB.weeks[w][d],own:false,w,d};
+}
+const KEYT=["uni","gym","pool","drive"];
+
 function renderSched(){
-  const curW=weekOf(new Date()),tIdx=todayIdx();
-  const isToday=UI.w===curW&&UI.d===tIdx;
-  const day=sorted(DB.weeks[UI.w][UI.d]);
-  const nm=new Date().getHours()*60+new Date().getMinutes();
-  const todayISO=isoDate(new Date());
-  const tt=DB.tasks.filter(t=>!t.done&&t.due&&t.due<=todayISO);
-  if(isEmptySchedule()){
-    $("#app").innerHTML=`<h1>Неделя</h1>
+  if(isEmptySchedule()&&!UI.forceSched){
+    $("#app").innerHTML=`<h1>Расписание</h1>
       <div class="card" style="display:flex;flex-direction:column;gap:10px">
         <h3 style="margin:0">Загрузи своё расписание</h3>
         <p class="small muted" style="margin:0">Расписание хранится только на этом устройстве. Выбери файл копии, например <b>moe-raspisanie.json</b>, из «Файлов», iCloud Drive или загрузок.</p>
@@ -293,44 +306,114 @@ function renderSched(){
       </div>`;
     $("#first-imp").onclick=()=>$("#first-file").click();
     $("#first-file").onchange=importData;
-    $("#first-new").onclick=()=>{DB.schedAt=DB.schedAt||1;UI.forceSched=true;renderSchedFull()};
-    if(!UI.forceSched)return;
+    $("#first-new").onclick=()=>{UI.forceSched=true;render()};
+    return;
   }
-  renderSchedFull();
+  if(!UI.sv)UI.sv="cal";
+  if(!UI.date)UI.date=isoDate(new Date());
+  UI.sv==="cal"?renderCal():renderTpl();
 }
-function renderSchedFull(){
-  const curW=weekOf(new Date()),tIdx=todayIdx();
-  const isToday=UI.w===curW&&UI.d===tIdx;
-  const day=sorted(DB.weeks[UI.w][UI.d]);
+function svSwitch(){return `<div class="row" role="group" aria-label="Режим"><button class="pill" id="sv-cal" aria-pressed="${UI.sv==="cal"}">Календарь</button><button class="pill" id="sv-tpl" aria-pressed="${UI.sv==="tpl"}">Шаблон</button></div>`}
+function bindSv(){$("#sv-cal").onclick=()=>{UI.sv="cal";render()};$("#sv-tpl").onclick=()=>{UI.sv="tpl";render()}}
+
+function evListHTML(list,isToday){
   const nm=new Date().getHours()*60+new Date().getMinutes();
-  const todayISO=isoDate(new Date());
-  const tt=DB.tasks.filter(t=>!t.done&&t.due&&t.due<=todayISO);
+  const day=sorted(list);
+  return `<ol class="list" id="evlist">${day.length?day.map(e=>{
+    let cur=false;if(isToday&&e.t!=="sleep"){const s=toMin(e.s),en=toMin(e.e);cur=nm>=s&&nm<(en>s?en:1440)}
+    const big=KEYT.includes(e.t);
+    return `<li><button class="ev ${big?"big":""} ${cur?"cur":""}" data-ev="${e.id}" style="--c:var(${(TYPES[e.t]||TYPES.other)[1]})">
+      <span class="t">${e.s}–${e.e}</span><span class="bar"></span>
+      <span><span class="what">${esc(e.title)}</span>${cur?'<span class="nowtag">СЕЙЧАС</span>':""}${e.note?`<span class="note" style="display:block">${esc(e.note)}</span>`:""}</span>
+      <span class="chev">${hasDetails(e)?"›":""}</span></button></li>`}).join(""):`<li class="empty">В этот день пока пусто</li>`}</ol>`;
+}
+function legendHTML(){return `<div class="legend">${Object.entries(TYPES).filter(([k])=>k!=="other").map(([k,[n,v]])=>`<span style="--c:var(${v})"><i></i>${n}</span>`).join("")}</div>`}
+
+function renderCal(){
+  const today=isoDate(new Date());
+  const sel=UI.date, info=dayInfo(sel);
+  const monday=addDays(sel,-wdOf(sel));
+  const week=[...Array(7)].map((_,i)=>addDays(monday,i));
+  const sd=parseISO(sel);
+  const a=parseISO(week[0]),b=parseISO(week[6]);
+  const range=a.getMonth()===b.getMonth()?`${a.getDate()}–${b.getDate()} ${MON_GEN[b.getMonth()]}`:`${a.getDate()} ${MON_GEN[a.getMonth()].slice(0,3)} – ${b.getDate()} ${MON_GEN[b.getMonth()].slice(0,3)}`;
+  const tt=DB.tasks.filter(t=>!t.done&&t.due&&(t.due===sel||(sel===today&&t.due<today)));
   $("#app").innerHTML=`
-    <div class="row between"><h1>Неделя</h1><span class="small muted">Сейчас ${curW==="odd"?"нечётная":"чётная"}</span></div>
+    <div class="row between"><h1>Расписание</h1>${svSwitch()}</div>
+    <div class="weeknav"><button id="wk-prev" aria-label="Предыдущая неделя">‹</button>
+      <button class="wklabel" id="wk-month">${range} <span class="muted">· ${info.w==="odd"?"нечётная":"чётная"}</span></button>
+      <button id="wk-next" aria-label="Следующая неделя">›</button></div>
+    <div class="days">${week.map(iso=>{
+      const di=dayInfo(iso),dd=parseISO(iso);
+      const keys=[...new Set(di.list.filter(e=>KEYT.includes(e.t)).map(e=>e.t))];
+      return `<button data-date="${iso}" aria-pressed="${iso===sel}" class="${iso===today?"today":""}" aria-label="${DFULL[wdOf(iso)]}, ${dd.getDate()} ${MON_GEN[dd.getMonth()]}">
+        ${DN[wdOf(iso)]}<b class="dnum">${dd.getDate()}</b><span class="dots">${keys.map(k=>`<i style="--c:var(${TYPES[k][1]})"></i>`).join("")||"&nbsp;"}</span></button>`}).join("")}</div>
+    ${tt.length?`<div class="card"><h3>Задачи на ${sel===today?"сегодня":"этот день"}</h3><ul class="list" style="border:0">${tt.map(taskRow).join("")}</ul></div>`:""}
+    <div class="row between"><h2>${DFULL[wdOf(sel)]}, ${sd.getDate()} ${MON_GEN[sd.getMonth()]}</h2><button class="link" id="add-ev">+ Событие</button></div>
+    ${info.own?`<div class="row small"><span class="chip">Изменённый день</span><button class="link" id="reset-day">вернуть обычное расписание</button></div>`:""}
+    ${sel!==today?`<button class="link" id="go-today" style="align-self:flex-start;margin-top:-8px">← к сегодняшнему дню</button>`:""}
+    ${evListHTML(info.list,sel===today)}
+    ${legendHTML()}`;
+  bindSv();
+  $("#wk-prev").onclick=()=>{UI.date=addDays(sel,-7);render()};
+  $("#wk-next").onclick=()=>{UI.date=addDays(sel,7);render()};
+  $("#wk-month").onclick=()=>openMonthPicker(sel);
+  $("#app").querySelectorAll("[data-date]").forEach(b=>b.onclick=()=>{UI.date=b.dataset.date;render()});
+  const gt=$("#go-today");if(gt)gt.onclick=()=>{UI.date=today;render()};
+  const rd=$("#reset-day");if(rd)rd.onclick=()=>{
+    rd.parentElement.innerHTML=`<div class="confirm" style="width:100%"><div>Убрать изменения этого дня и показать обычное расписание по шаблону?</div><div class="grid2"><button class="btn" id="c-no">Отмена</button><button class="btn danger" id="c-yes">Вернуть</button></div></div>`;
+    $("#c-no").onclick=render;$("#c-yes").onclick=()=>{delete DB.dated[sel];saveSched();render();toast("День вернулся к шаблону")};
+  };
+  $("#add-ev").onclick=()=>openEventEditor(null,{kind:"date",iso:sel});
+  $("#app").querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>openEvent(b.dataset.ev,{kind:"date",iso:sel}));
+  bindTaskRows($("#app"));
+}
+
+function openMonthPicker(iso){
+  let cur=parseISO(iso);cur=new Date(cur.getFullYear(),cur.getMonth(),1);
+  const today=isoDate(new Date());
+  const draw=()=>{
+    const y=cur.getFullYear(),m=cur.getMonth();
+    const off=(cur.getDay()+6)%7,last=new Date(y,m+1,0).getDate(),cells=Math.ceil((off+last)/7)*7;
+    let g=DN.map(d=>`<div class="wd">${d}</div>`).join("");
+    for(let i=0;i<cells;i++){
+      const d=new Date(y,m,1-off+i),di=isoDate(d),inf=dayInfo(di);
+      const bars=sorted(inf.list).filter(e=>KEYT.includes(e.t)).slice(0,4);
+      g+=`<button class="cell ${d.getMonth()!==m?"out":""} ${di===today?"today":""} ${di===UI.date?"sel":""}" data-pick="${di}">
+        <span class="n">${d.getDate()}</span>${bars.map(e=>`<span class="b" style="--pc:var(${TYPES[e.t][1]})"></span>`).join("")}</button>`;
+    }
+    sheet(`<div class="calnav"><button id="mp-prev" aria-label="Предыдущий месяц">‹</button><b>${MON_NOM[m]} ${y}</b><button id="mp-next" aria-label="Следующий месяц">›</button></div>
+      <div class="calgrid">${g}</div>
+      <div class="plegend">${KEYT.map(k=>`<span style="--pc:var(${TYPES[k][1]})"><i></i>${TYPES[k][0]}</span>`).join("")}</div>`,()=>{
+      $("#mp-prev").onclick=()=>{cur=new Date(y,m-1,1);draw()};
+      $("#mp-next").onclick=()=>{cur=new Date(y,m+1,1);draw()};
+      document.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{UI.date=b.dataset.pick;closeSheet();render()});
+    });
+  };
+  draw();
+}
+
+function renderTpl(){
+  if(UI.w==null)UI.w=weekOf(new Date());
+  if(UI.d==null)UI.d=todayIdx();
+  $("#app").innerHTML=`
+    <div class="row between"><h1>Расписание</h1>${svSwitch()}</div>
+    <p class="small muted" style="margin:-6px 0 0">Шаблон — обычная неделя. Им заполняются все дни календаря, кроме изменённых отдельно.</p>
     <div class="row" role="group" aria-label="Тип недели">
-      <button class="pill" id="w-odd" data-w="odd" aria-pressed="${UI.w==="odd"}">Нечётная</button>
-      <button class="pill" id="w-even" data-w="even" aria-pressed="${UI.w==="even"}">Чётная</button>
-      ${(UI.w!==curW||UI.d!==tIdx)?`<button class="link" id="go-today">Сегодня</button>`:""}
-    </div>
+      <button class="pill" data-w="odd" aria-pressed="${UI.w==="odd"}">Нечётная</button>
+      <button class="pill" data-w="even" aria-pressed="${UI.w==="even"}">Чётная</button></div>
     <div class="days">${DB.weeks[UI.w].map((items,i)=>{
       const tr=items.find(x=>x.t==="gym")?"зал":items.find(x=>x.t==="pool")?"бассейн":"";
-      return `<button id="d-${i}" data-d="${i}" aria-pressed="${i===UI.d}" class="${i===tIdx&&UI.w===curW?"today":""}">${DN[i]}<span>${tr||"&nbsp;"}</span></button>`}).join("")}</div>
-    ${isToday&&tt.length?`<div class="card"><h3>Задачи на сегодня</h3><ul class="list" style="border:0">${tt.map(taskRow).join("")}</ul></div>`:""}
-    <div class="row between"><h2>${DFULL[UI.d]}</h2><button class="link" id="add-ev">+ Событие</button></div>
-    <ol class="list" id="evlist">${day.length?day.map(e=>{
-      let cur=false;if(isToday&&e.t!=="sleep"){const s=toMin(e.s),en=toMin(e.e);cur=nm>=s&&nm<(en>s?en:1440)}
-      const big=["uni","gym","pool"].includes(e.t);
-      return `<li><button class="ev ${big?"big":""} ${cur?"cur":""}" data-ev="${e.id}" style="--c:var(${(TYPES[e.t]||TYPES.other)[1]})">
-        <span class="t">${e.s}–${e.e}</span><span class="bar"></span>
-        <span><span class="what">${esc(e.title)}</span>${cur?'<span class="nowtag">СЕЙЧАС</span>':""}${e.note?`<span class="note" style="display:block">${esc(e.note)}</span>`:""}</span>
-        <span class="chev">${hasDetails(e)?"›":""}</span></button></li>`}).join(""):`<li class="empty">В этот день пока пусто</li>`}</ol>
-    <div class="legend">${Object.entries(TYPES).filter(([k])=>k!=="other").map(([k,[n,v]])=>`<span style="--c:var(${v})"><i></i>${n}</span>`).join("")}</div>`;
+      return `<button data-d="${i}" aria-pressed="${i===UI.d}">${DN[i]}<span>${tr||"&nbsp;"}</span></button>`}).join("")}</div>
+    <div class="row between"><h2>${DFULL[UI.d]} · шаблон</h2><button class="link" id="add-ev">+ Событие</button></div>
+    ${evListHTML(DB.weeks[UI.w][UI.d],false)}
+    ${legendHTML()}`;
+  bindSv();
   $("#app").querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{UI.w=b.dataset.w;render()});
   $("#app").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{UI.d=+b.dataset.d;render()});
-  const gt=$("#go-today");if(gt)gt.onclick=()=>{UI.w=curW;UI.d=tIdx;render()};
-  $("#add-ev").onclick=()=>openEventEditor(null);
-  $("#app").querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>openEvent(b.dataset.ev));
-  bindTaskRows($("#app"));
+  const loc={kind:"tpl",w:UI.w,d:UI.d};
+  $("#add-ev").onclick=()=>openEventEditor(null,loc);
+  $("#app").querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>openEvent(b.dataset.ev,loc));
 }
 
 /* ---------- лист (bottom sheet) ---------- */
@@ -344,14 +427,25 @@ function sheet(html,onMount){
 function closeSheet(){$("#layer").innerHTML="";document.body.style.overflow=""}
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 
-function findEv(id){for(const w of ["odd","even"])for(let d=0;d<7;d++){const e=DB.weeks[w][d].find(x=>x.id===id);if(e)return{e,w,d}}return null}
+function locList(loc){return loc.kind==="tpl"?DB.weeks[loc.w][loc.d]:dayInfo(loc.iso).list}
+function locLabel(loc){
+  if(loc.kind==="tpl")return `Шаблон: ${DFULL[loc.d].toLowerCase()}, ${loc.w==="odd"?"нечётная":"чётная"} неделя`;
+  const d=parseISO(loc.iso);return `${DFULL[wdOf(loc.iso)]}, ${d.getDate()} ${MON_GEN[d.getMonth()]}`;
+}
+// превратить день в «изменённый»: копия шаблона с новыми id; возвращает карту старый id → новый
+function materialize(iso){
+  if(DB.dated[iso])return null;
+  const inf=dayInfo(iso),map={};
+  DB.dated[iso]=inf.list.map(e=>{const n={...e,id:uid()};map[e.id]=n.id;return n});
+  return map;
+}
 
-function openEvent(id){
-  const f=findEv(id);if(!f)return;const e=f.e;
+function openEvent(id,loc){
+  const e=locList(loc).find(x=>x.id===id);if(!e)return;
   const plan=e.ref&&DB.plans[e.ref];
   sheet(`
     <div class="head" style="--c:var(${(TYPES[e.t]||TYPES.other)[1]})"><div class="sw"></div>
-      <div style="flex:1"><div class="tm">${e.s}–${e.e} · ${DFULL[f.d]}, ${f.w==="odd"?"нечётная":"чётная"}</div>
+      <div style="flex:1"><div class="tm">${e.s}–${e.e} · ${locLabel(loc)}</div>
       <h2 style="margin-top:2px">${esc(e.title)}</h2>${e.note?`<div class="muted small" style="margin-top:4px">${esc(e.note)}</div>`:""}</div></div>
     ${plan?`<div class="chips"><span class="chip">План: ${esc(plan.title)}</span></div>`:""}
     ${hasDetails(e)?`<div class="md">${md(detailsOf(e))}</div>`:`<p class="muted">Подробностей пока нет. Нажми «Изменить», чтобы добавить свой текст или привязать план.</p>`}
@@ -359,21 +453,35 @@ function openEvent(id){
       <button class="btn primary" id="ev-edit">Изменить</button>
       ${plan?`<button class="btn" id="ev-plan">Изменить план</button>`:`<button class="btn" id="ev-close">Закрыть</button>`}
     </div>`,()=>{
-      $("#ev-edit").onclick=()=>openEventEditor(id);
+      $("#ev-edit").onclick=()=>openEventEditor(id,loc);
       const p=$("#ev-plan");if(p)p.onclick=()=>openPlanEditor(e.ref);
       const c=$("#ev-close");if(c)c.onclick=closeSheet;
     });
 }
 
-function openEventEditor(id){
-  const f=id?findEv(id):null;
-  const e=f?f.e:{s:"12:00",e:"13:00",t:"other",title:"",note:"",details:""};
+function openEventEditor(id,loc){
+  const list=locList(loc);
+  const e0=id?list.find(x=>x.id===id):null;
+  const e=e0||{s:"12:00",e:"13:00",t:"other",title:"",note:"",details:""};
   const mode=e.ref?"plan:"+e.ref:(e.details?"own":"none");
   const planOpts=Object.entries(DB.plans).map(([k,p])=>`<option value="plan:${k}" ${mode==="plan:"+k?"selected":""}>План: ${esc(p.title)}</option>`).join("");
+  // где сохранять: для даты — «только этот день» или «в шаблон»
+  let scopeHTML="";
+  if(loc.kind==="date"){
+    const inf=dayInfo(loc.iso);
+    const tplName=`Все ${["понедельники","вторники","среды","четверги","пятницы","субботы","воскресенья"][inf.d]} (${inf.w==="odd"?"нечётн.":"чётн."})`;
+    const canTpl=!e0||!inf.own;
+    scopeHTML=canTpl?`<div class="field"><label>Где изменить</label><div class="prio" id="f-scope">
+        <button type="button" data-sc="day" aria-pressed="true" style="--pc:var(--accent)">Только этот день</button>
+        <button type="button" data-sc="tpl" aria-pressed="false" style="--pc:var(--accent)">${tplName}</button></div></div>`
+      :`<div class="small muted">Этот день изменён отдельно, правка коснётся только его.</div>`;
+  }else{
+    scopeHTML=e0?"":`<label class="row small"><input type="checkbox" id="f-both"> Добавить и в ${loc.w==="odd"?"чётную":"нечётную"} неделю, в тот же день</label>`;
+  }
   sheet(`
-    <h2>${f?"Изменить событие":"Новое событие"}</h2>
-    <div class="muted small">${DFULL[f?f.d:UI.d]}, ${(f?f.w:UI.w)==="odd"?"нечётная":"чётная"} неделя</div>
-    <div class="field"><label for="f-title">Название</label><input type="text" id="f-title" value="${esc(e.title)}" placeholder="Например, Тренировка 1"></div>
+    <h2>${e0?"Изменить событие":"Новое событие"}</h2>
+    <div class="muted small">${locLabel(loc)}</div>
+    <div class="field"><label for="f-title">Название</label><input type="text" id="f-title" value="${esc(e.title)}" placeholder="Например, Урок вождения"></div>
     <div class="grid2">
       <div class="field"><label for="f-s">Начало</label><input type="time" id="f-s" value="${e.s}"></div>
       <div class="field"><label for="f-e">Конец</label><input type="time" id="f-e" value="${e.e}"></div>
@@ -385,26 +493,37 @@ function openEventEditor(id){
     <div class="field" id="own-wrap" ${mode==="own"?"":"hidden"}><label for="f-det">Текст</label>
       <textarea id="f-det" placeholder="# Заголовок&#10;- пункт&#10;1. нумерованный пункт&#10;**жирный**">${esc(e.details||"")}</textarea>
       <div class="small muted"># — заголовок, - — пункт списка, 1. — нумерация, **текст** — жирный</div></div>
-    ${f?"":`<label class="row small"><input type="checkbox" id="f-both"> Добавить и в ${UI.w==="odd"?"чётную":"нечётную"} неделю, в тот же день</label>`}
+    ${scopeHTML}
     <button class="btn primary block" id="f-save">Сохранить</button>
-    ${f?`<div id="del-area"><button class="btn danger block" id="f-del">Удалить событие</button></div>`:""}
+    ${e0?`<div id="del-area"><button class="btn danger block" id="f-del">Удалить событие</button></div>`:""}
   `,()=>{
+    let scope="day";
+    document.querySelectorAll("#f-scope [data-sc]").forEach(b=>b.onclick=()=>{scope=b.dataset.sc;document.querySelectorAll("#f-scope [data-sc]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.sc===scope))});
     $("#f-mode").onchange=()=>{$("#own-wrap").hidden=$("#f-mode").value!=="own"};
+    // куда писать: возвращает {arr, id}
+    const target=()=>{
+      if(loc.kind==="tpl")return{arr:DB.weeks[loc.w][loc.d],id};
+      const inf=dayInfo(loc.iso);
+      if(scope==="tpl"&&!inf.own)return{arr:DB.weeks[inf.w][inf.d],id};
+      const map=materialize(loc.iso);
+      return{arr:DB.dated[loc.iso],id:id&&map?map[id]:id};
+    };
     $("#f-save").onclick=()=>{
       const title=$("#f-title").value.trim();if(!title){$("#f-title").focus();toast("Впиши название");return}
       const o={s:$("#f-s").value||"00:00",e:$("#f-e").value||"00:00",t:$("#f-t").value,title,note:$("#f-note").value.trim()};
       const m=$("#f-mode").value;
       if(m==="own"){o.details=$("#f-det").value;}else if(m.startsWith("plan:")){o.ref=m.slice(5)}
-      if(f){const ix=DB.weeks[f.w][f.d].indexOf(f.e);DB.weeks[f.w][f.d][ix]={id:f.e.id,...o}}
-      else{DB.weeks[UI.w][UI.d].push({id:uid(),...o});
-        if($("#f-both")&&$("#f-both").checked){const other=UI.w==="odd"?"even":"odd";DB.weeks[other][UI.d].push({id:uid(),...o})}}
+      const t=target();
+      if(e0){const ix=t.arr.findIndex(x=>x.id===t.id);if(ix>=0)t.arr[ix]={id:t.id,...o}}
+      else{t.arr.push({id:uid(),...o});
+        if(loc.kind==="tpl"&&$("#f-both")&&$("#f-both").checked){const other=loc.w==="odd"?"even":"odd";DB.weeks[other][loc.d].push({id:uid(),...o})}}
       saveSched();closeSheet();render();toast("Сохранено");
     };
     const del=$("#f-del");
     if(del)del.onclick=()=>{
-      $("#del-area").innerHTML=`<div class="confirm"><div>Удалить «${esc(e.title)}»?</div><div class="grid2"><button class="btn" id="c-no">Отмена</button><button class="btn danger" id="c-yes">Удалить</button></div></div>`;
-      $("#c-no").onclick=()=>openEventEditor(id);
-      $("#c-yes").onclick=()=>{DB.weeks[f.w][f.d]=DB.weeks[f.w][f.d].filter(x=>x.id!==id);saveSched();closeSheet();render();toast("Удалено")};
+      $("#del-area").innerHTML=`<div class="confirm"><div>Удалить «${esc(e.title)}»${loc.kind==="date"&&scope==="tpl"?" из шаблона":""}?</div><div class="grid2"><button class="btn" id="c-no">Отмена</button><button class="btn danger" id="c-yes">Удалить</button></div></div>`;
+      $("#c-no").onclick=()=>openEventEditor(id,loc);
+      $("#c-yes").onclick=()=>{const t=target();const ix=t.arr.findIndex(x=>x.id===t.id);if(ix>=0)t.arr.splice(ix,1);saveSched();closeSheet();render();toast("Удалено")};
     };
   });
 }
@@ -587,7 +706,7 @@ function mergeIn(inc){
   const res=[];
   // 1. Расписание и планы: берём то, что меняли позже
   const localEmpty=isEmptySchedule()&&!Object.keys(DB.plans).length;
-  if(localEmpty||inc.schedAt>DB.schedAt){DB.weeks=inc.weeks;DB.plans=inc.plans;DB.schedAt=inc.schedAt;res.push("Расписание и планы обновлены из файла")}
+  if(localEmpty||inc.schedAt>DB.schedAt){DB.weeks=inc.weeks;DB.plans=inc.plans;DB.dated=inc.dated||{};DB.schedAt=inc.schedAt;res.push("Расписание и планы обновлены из файла")}
   else if(inc.schedAt<DB.schedAt)res.push("Расписание здесь новее, чем в файле, — оставлено как есть");
   else res.push("Расписание не менялось");
   // 2. Настройки
