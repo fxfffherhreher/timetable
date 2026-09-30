@@ -123,7 +123,7 @@ textarea{min-height:220px;resize:vertical;font-family:var(--mono);font-size:14px
 .confirm{background:var(--soft);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
 /* tabbar */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--card);border-top:1px solid var(--line);
-  padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(4,1fr)}
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(5,1fr)}
 nav.tabs button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;font-size:11.5px;font-weight:600;color:var(--muted)}
 nav.tabs button svg{width:24px;height:24px}
 nav.tabs button[aria-current="page"]{color:var(--ink)}
@@ -156,6 +156,38 @@ nav.tabs button[aria-current="page"]{color:var(--ink)}
 .plegend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:10px;justify-content:center}
 .plegend span{display:flex;align-items:center;gap:6px}
 .plegend i{width:14px;height:4px;border-radius:2px;background:var(--pc)}
+.restbar{position:fixed;left:8px;right:8px;bottom:calc(70px + env(safe-area-inset-bottom,0px));z-index:15;background:var(--ink);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:8px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.restbar .rb-fill{position:absolute;left:0;top:0;bottom:0;background:var(--gym);opacity:.35;transition:width .5s linear}
+.restbar .rb-t{position:relative;flex:1;font-weight:700;font-variant-numeric:tabular-nums}
+.restbar button{position:relative;background:color-mix(in srgb,var(--bg) 16%,transparent);color:inherit;border:0;border-radius:10px;padding:7px 10px;font-weight:650;font-size:14px}
+body.resting{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px))}
+.wprog{height:6px;border-radius:3px;background:var(--line);overflow:hidden}.wprog i{display:block;height:100%;background:var(--gym)}
+.excard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.excard.exdone{border-color:var(--study)}
+.exhead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.exname{font-weight:750;font-size:17px}
+.chip.ok{background:var(--study);color:#fff}
+.sug{font-weight:600;color:var(--ink)}.sug.up{color:var(--gym)}
+.sets{display:flex;flex-direction:column;gap:6px}
+.sethead,.setrow{display:grid;grid-template-columns:24px minmax(0,1fr) minmax(0,1fr) 46px;gap:8px;align-items:center}
+.sethead{font-size:12px;color:var(--muted);font-weight:650}
+.setrow input{text-align:center;font-variant-numeric:tabular-nums;padding:9px 6px}
+.setrow .sn{font-weight:700;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.setrow.sdone input{background:color-mix(in srgb,var(--study) 12%,var(--card));border-color:transparent}
+.sok{height:42px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:18px;font-weight:800;color:var(--muted)}
+.sok.on{background:var(--study);border-color:var(--study);color:#fff}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stats div{background:var(--soft);border-radius:12px;padding:10px;display:flex;flex-direction:column;align-items:center}
+.stats b{font-size:22px;font-variant-numeric:tabular-nums}.stats span{font-size:12px;color:var(--muted)}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.hist li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.hist li:first-child{border-top:0}.hist li span:last-child{font-variant-numeric:tabular-nums;text-align:right;color:var(--muted)}
+.chart{margin:0}.chart svg{width:100%;height:auto;display:block;overflow:visible}
+.chart .cg{stroke:var(--line);stroke-width:1}.chart .ct{fill:var(--muted);font-size:10px;font-family:var(--body)}
+.chart .cl{fill:none;stroke:var(--gym);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .cp{fill:var(--gym);stroke:var(--card);stroke-width:2}.chart .chit{fill:transparent;cursor:pointer}
+.chart figcaption{margin-top:4px}
+
 .empty{padding:18px 14px;color:var(--muted);text-align:center}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.5}}}
 @media (max-width:400px){.ev{grid-template-columns:76px 4px 1fr auto;gap:10px;padding:11px 12px}.ev .t{font-size:11.5px}}
@@ -184,7 +216,7 @@ const KEY="moya-nedelya-v1";
 const uid=()=>Math.random().toString(36).slice(2,10);
 const emptyWeek=()=>Array.from({length:7},()=>[]);
 function makeDefault(){
-  return{v:2,weeks:{odd:emptyWeek(),even:emptyWeek()},dated:{},plans:{},tasks:[],deletedTasks:{},settings:{invert:false},schedAt:0};
+  return{v:2,weeks:{odd:emptyWeek(),even:emptyWeek()},dated:{},workouts:[],bodyweight:[],plans:{},tasks:[],deletedTasks:{},settings:{invert:false},schedAt:0};
 }
 function isEmptySchedule(){return !DB.weeks.odd.some(d=>d.length)&&!DB.weeks.even.some(d=>d.length)}
 let DB;
@@ -195,11 +227,12 @@ function load(){
 function normalize(d){
   const b=makeDefault();
   d.weeks=d.weeks||b.weeks;d.plans=d.plans||{};d.tasks=d.tasks||[];d.deletedTasks=d.deletedTasks||{};
-  d.settings=d.settings||b.settings;d.dated=d.dated||{};d.schedAt=d.schedAt||0;
+  d.settings=d.settings||b.settings;d.dated=d.dated||{};d.workouts=d.workouts||[];d.bodyweight=d.bodyweight||[];d.schedAt=d.schedAt||0;
   d.tasks.forEach(t=>{if(!t.updated)t.updated=t.doneAt||t.created||0});
   return d;
 }
 function saveSched(){DB.schedAt=Date.now();save()}
+function delItems(coll,ids){const now=Date.now();ids.forEach(id=>{DB.deletedTasks[id]=now});DB[coll]=DB[coll].filter(t=>!ids.includes(t.id))}
 function delTasks(ids){const now=Date.now();ids.forEach(id=>{DB.deletedTasks[id]=now});DB.tasks=DB.tasks.filter(t=>!ids.includes(t.id))}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){toast("Не удалось сохранить")}}
 function save(){saveLocal();scheduleSync()}
@@ -247,14 +280,15 @@ const ICONS={
   sched:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
   tasks:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l2 2 3.5-3.5M4 15l2 2 3.5-3.5M13 8h7M13 16h7"/></svg>',
   plans:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 3.5h9l3.5 3.5v13.5H6z"/><path d="M9 11h6.5M9 14.5h6.5M9 18h4"/></svg>',
+  gym:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/></svg>',
   more:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke-linecap="round"/></svg>'
 };
 function renderTabs(){
-  const names={sched:"Расписание",tasks:"Задачи",plans:"Планы",more:"Ещё"};
+  const names={sched:"Расписание",tasks:"Задачи",gym:"Зал",plans:"Планы",more:"Ещё"};
   $("#tabs").innerHTML=Object.keys(names).map(k=>`<button id="tab-${k}" data-tab="${k}" ${UI.tab===k?'aria-current="page"':""}>${ICONS[k]}${names[k]}</button>`).join("");
   $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{UI.tab=b.dataset.tab;render();window.scrollTo(0,0)});
 }
-function render(){renderTabs();({sched:renderSched,tasks:renderTasks,plans:renderPlans,more:renderMore})[UI.tab]()}
+function render(){renderTabs();({sched:renderSched,tasks:renderTasks,gym:renderGym,plans:renderPlans,more:renderMore})[UI.tab]();if(ACTIVE)drawRest()}
 
 /* ================== РАСПИСАНИЕ ================== */
 function sorted(day){return[...day].sort((a,b)=>{const k=x=>x.t==="sleep"&&toMin(x.s)>=18*60?toMin(x.s):toMin(x.s);return k(a)-k(b)})}
@@ -453,7 +487,9 @@ function openEvent(id,loc){
     <div class="grid2">
       <button class="btn primary" id="ev-edit">Изменить</button>
       ${plan?`<button class="btn" id="ev-plan">Изменить план</button>`:`<button class="btn" id="ev-close">Закрыть</button>`}
-    </div>`,()=>{
+    </div>
+    ${plan&&plan.type==="gym"&&parsePlan(e.ref).length?`<button class="btn block" id="ev-start" style="background:var(--gym);color:#fff">${ACTIVE?"Открыть идущую тренировку":"Начать тренировку"}</button>`:""}`,()=>{
+      const st=$("#ev-start");if(st)st.onclick=()=>{if(ACTIVE){closeSheet();UI.tab="gym";render()}else startWorkout(e.ref)};
       $("#ev-edit").onclick=()=>openEventEditor(id,loc);
       const p=$("#ev-plan");if(p)p.onclick=()=>openPlanEditor(e.ref);
       const c=$("#ev-close");if(c)c.onclick=closeSheet;
@@ -714,26 +750,304 @@ function mergeIn(inc){
   else res.push("Расписание не менялось");
   // 2. Настройки
   if((inc.settings.at||0)>(DB.settings.at||0))DB.settings=inc.settings;
-  // 3. Задачи: объединяем, учитывая удаления
+  // 3. Задачи, тренировки, вес тела: объединяем по id, учитывая удаления
   const tomb={...DB.deletedTasks};
-  for(const[id,ts] of Object.entries(inc.deletedTasks))tomb[id]=Math.max(tomb[id]||0,ts);
-  const map=new Map();
-  let added=0,updated=0;
-  DB.tasks.forEach(t=>map.set(t.id,t));
-  inc.tasks.forEach(t=>{const cur=map.get(t.id);
-    if(!cur){map.set(t.id,t);added++}
-    else if((t.updated||0)>(cur.updated||0)){map.set(t.id,t);updated++}});
-  let removed=0;
-  const tasks=[...map.values()].filter(t=>{const d=tomb[t.id];if(d&&d>=(t.updated||0)){removed++;return false}return true});
+  for(const[id,ts] of Object.entries(inc.deletedTasks||{}))tomb[id]=Math.max(tomb[id]||0,ts);
+  const stat={};
+  for(const coll of ["tasks","workouts","bodyweight"]){
+    const map=new Map();let added=0,updated=0,removed=0;
+    (DB[coll]||[]).forEach(t=>map.set(t.id,t));
+    (inc[coll]||[]).forEach(t=>{const cur=map.get(t.id);
+      if(!cur){map.set(t.id,t);added++}
+      else if((t.updated||0)>(cur.updated||0)){map.set(t.id,t);updated++}});
+    DB[coll]=[...map.values()].filter(t=>{const d=tomb[t.id];if(d&&d>=(t.updated||0)){removed++;return false}return true});
+    stat[coll]={added,updated,removed};
+  }
   // старые метки удалений держим 90 дней
   const cutoff=Date.now()-90*864e5;for(const id in tomb)if(tomb[id]<cutoff)delete tomb[id];
-  DB.tasks=tasks;DB.deletedTasks=tomb;
-  res.push(`Задачи: новых ${added}, обновлено ${updated}, удалено ${removed}`);
+  DB.deletedTasks=tomb;
+  res.push(`Задачи: новых ${stat.tasks.added}, обновлено ${stat.tasks.updated}, удалено ${stat.tasks.removed}`);
+  if(stat.workouts.added||stat.workouts.removed)res.push(`Тренировки: новых ${stat.workouts.added}, удалено ${stat.workouts.removed}`);
   return res;
 }
 function showImportResult(lines){
   sheet(`<h2>Копия загружена</h2><ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px">${lines.map(l=>`<li>${esc(l)}</li>`).join("")}</ul>
     <button class="btn primary block" id="ir-ok">Готово</button>`,()=>{$("#ir-ok").onclick=closeSheet});
+}
+
+/* ================== ЗАЛ: ДНЕВНИК ТРЕНИРОВОК ==================
+   Упражнения берутся из текста планов типа «Зал» (строки вида
+   «1. **Присед со штангой** — 4×5–8»). Идущая тренировка хранится только
+   на этом устройстве; законченная попадает в DB.workouts и синхронизируется. */
+const ACTIVE_KEY=KEY+"-active";
+let ACTIVE=null;
+try{ACTIVE=JSON.parse(localStorage.getItem(ACTIVE_KEY)||"null")}catch(e){}
+function saveActive(){try{ACTIVE?localStorage.setItem(ACTIVE_KEY,JSON.stringify(ACTIVE)):localStorage.removeItem(ACTIVE_KEY)}catch(e){}}
+
+const BW_RE=/подтяг|брусья|гиперэкст|подъём ног|подъемы ног|подъёмы ног|отжим|скручив|планк/i;
+const nkey=s=>String(s).toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ").trim();
+function parsePlan(pid){
+  const p=DB.plans[pid];if(!p)return[];
+  const out=[];
+  for(const line of String(p.body||"").split("\n")){
+    const m=line.match(/^\s*\d+[.)]\s+\*\*(.+?)\*\*(.*)$/);if(!m)continue;
+    const sr=m[2].match(/(\d+)(?:\s*[–-]\s*(\d+))?\s*[×xх]\s*(\d+)(?:\s*[–-]\s*(\d+))?/);
+    if(!sr)continue;
+    const name=m[1].trim(),sets=+(sr[2]||sr[1]),rmin=+sr[3],rmax=+(sr[4]||sr[3]);
+    const bw=BW_RE.test(name);
+    out.push({name,sets,rmin,rmax,bw,step:bw?0:(/гантел|молот|махи|развед/i.test(name)?2:2.5),rest:out.length===0?180:90});
+  }
+  return out;
+}
+const gymPlans=()=>Object.entries(DB.plans).filter(([k,p])=>p.type==="gym"&&parsePlan(k).length);
+
+const e1rm=(w,r)=>w>0&&r>0?(r===1?w:w*(1+r/30)):0;
+const fmtKg=n=>(Math.round(n*10)/10).toString().replace(".",",");
+const parseNum=v=>{const n=parseFloat(String(v).replace(",","."));return isFinite(n)?n:0};
+
+function lastFor(name,exceptId){
+  const k=nkey(name);
+  const ws=[...DB.workouts].filter(w=>w.id!==exceptId).sort((a,b)=>b.startedAt-a.startedAt);
+  for(const w of ws){const ex=w.exercises.find(x=>nkey(x.name)===k);if(ex&&ex.sets.length)return{date:w.date,sets:ex.sets}}
+  return null;
+}
+function suggest(ex){
+  const last=lastFor(ex.name,ACTIVE&&ACTIVE.id);
+  if(!last)return{w:"",text:ex.bw?"Первый раз: запиши повторы":"Первый раз: подбери рабочий вес"};
+  const top=Math.max(...last.sets.map(s=>s.w||0));
+  const topSets=last.sets.filter(s=>(s.w||0)===top);
+  const allMax=last.sets.length>=(ex.target??ex.sets)&&last.sets.every(s=>s.r>=ex.rmax);
+  if(ex.bw){
+    return allMax?{w:top||"",text:top?`Все подходы по ${ex.rmax}: добавь вес или повторы`:`Все подходы по ${ex.rmax}: можно с доп. весом`}:{w:top||"",text:"Добери повторы до "+ex.rmax};
+  }
+  if(allMax&&ex.step)return{w:top+ex.step,text:`Прибавь: ${fmtKg(top+ex.step)} кг (+${fmtKg(ex.step)})`,up:true};
+  const minR=Math.min(...topSets.map(s=>s.r));
+  return{w:top,text:minR<ex.rmin?`Тот же вес ${fmtKg(top)} кг, повторов было мало`:`Тот же вес ${fmtKg(top)} кг, добери до ${ex.rmax}`};
+}
+
+function startWorkout(pid){
+  const p=DB.plans[pid];if(!p)return;
+  if(ACTIVE){toast("Сначала заверши текущую тренировку");UI.tab="gym";render();return}
+  const exs=parsePlan(pid).map(e=>{const s=suggest(e);return{...e,target:e.sets,sets:Array.from({length:e.sets},()=>({w:s.w===""?"":String(s.w),r:"",done:false}))}});
+  ACTIVE={id:uid(),planId:pid,title:p.title,date:isoDate(new Date()),startedAt:Date.now(),exercises:exs,rest:null};
+  saveActive();closeSheet();UI.tab="gym";render();window.scrollTo(0,0);
+}
+
+/* ---------- таймер отдыха ---------- */
+let restTick=null,audioCtx=null;
+function beep(){
+  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    [0,0.25,0.5].forEach(t=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=880;g.gain.value=0.15;o.connect(g);g.connect(audioCtx.destination);o.start(audioCtx.currentTime+t);o.stop(audioCtx.currentTime+t+0.15)})}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
+}
+function startRest(sec){
+  if(!ACTIVE)return;
+  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();audioCtx.resume&&audioCtx.resume()}catch(e){}
+  ACTIVE.rest={until:Date.now()+sec*1000,total:sec};saveActive();drawRest();
+}
+function drawRest(){
+  let bar=$("#restbar");
+  document.body.classList.toggle("resting",!!(ACTIVE&&ACTIVE.rest));
+  if(!ACTIVE||!ACTIVE.rest){if(bar)bar.remove();clearInterval(restTick);restTick=null;return}
+  if(!bar){bar=document.createElement("div");bar.id="restbar";bar.className="restbar";document.body.appendChild(bar)}
+  const left=Math.max(0,Math.round((ACTIVE.rest.until-Date.now())/1000));
+  const pct=ACTIVE.rest.total?100-left/ACTIVE.rest.total*100:100;
+  bar.innerHTML=`<div class="rb-fill" style="width:${pct}%"></div><span class="rb-t">${left?"Отдых "+Math.floor(left/60)+":"+pad(left%60):"Можно работать"}</span>
+    <button id="rb-plus">+30 с</button><button id="rb-skip">${left?"Пропустить":"Закрыть"}</button>`;
+  $("#rb-plus").onclick=()=>{ACTIVE.rest.until=Math.max(ACTIVE.rest.until,Date.now())+30000;ACTIVE.rest.total+=30;ACTIVE.rest.beeped=false;saveActive();drawRest()};
+  $("#rb-skip").onclick=()=>{ACTIVE.rest=null;saveActive();drawRest()};
+  if(!left&&!ACTIVE.rest.beeped){ACTIVE.rest.beeped=true;saveActive();beep();toast("Отдых закончился")}
+  if(!restTick)restTick=setInterval(drawRest,500);
+}
+
+/* ---------- экран «Зал» ---------- */
+function renderGym(){ACTIVE?renderActive():renderGymHome()}
+
+function renderActive(){
+  const a=ACTIVE;
+  const mins=Math.floor((Date.now()-a.startedAt)/60000);
+  const doneSets=a.exercises.reduce((n,e)=>n+e.sets.filter(s=>s.done).length,0);
+  const allSets=a.exercises.reduce((n,e)=>n+e.sets.length,0);
+  $("#app").innerHTML=`
+    <div class="row between"><h1 style="font-size:24px">${esc(a.title)}</h1><span class="small muted" id="w-elapsed">${mins} мин</span></div>
+    <div class="wprog"><i style="width:${allSets?doneSets/allSets*100:0}%"></i></div>
+    <div class="small muted" style="margin-top:-6px">Подходов: ${doneSets} из ${allSets}</div>
+    ${a.exercises.map((ex,i)=>{
+      const last=lastFor(ex.name,a.id),sg=suggest(ex);
+      const done=ex.sets.length&&ex.sets.every(s=>s.done);
+      return `<section class="excard ${done?"exdone":""}">
+        <div class="exhead"><div><div class="exname">${esc(ex.name)}</div>
+          <div class="small muted">${ex.target} × ${ex.rmin}${ex.rmax!==ex.rmin?"–"+ex.rmax:""}${ex.bw?" · свой вес":""} · отдых ${ex.rest>=120?Math.round(ex.rest/60)+" мин":ex.rest+" с"}</div></div>
+          ${done?'<span class="chip ok">готово</span>':""}</div>
+        ${last?`<div class="small muted">Прошлый раз: ${last.sets.map(s=>(ex.bw&&!s.w?"":fmtKg(s.w)+"×")+s.r).join(" · ")}</div>`:""}
+        <div class="small sug ${sg.up?"up":""}">${esc(sg.text)}</div>
+        <div class="sets">
+          <div class="sethead"><span>№</span><span>${ex.bw?"доп. кг":"кг"}</span><span>повт.</span><span></span></div>
+          ${ex.sets.map((s,j)=>`<div class="setrow ${s.done?"sdone":""}">
+            <span class="sn">${j+1}</span>
+            <input id="w-${i}-${j}" data-ex="${i}" data-set="${j}" data-f="w" inputmode="decimal" value="${esc(s.w)}" placeholder="${ex.bw?"0":"вес"}" aria-label="Вес, подход ${j+1}">
+            <input id="r-${i}-${j}" data-ex="${i}" data-set="${j}" data-f="r" inputmode="numeric" value="${esc(s.r)}" placeholder="${ex.rmin}${ex.rmax!==ex.rmin?"–"+ex.rmax:""}" aria-label="Повторы, подход ${j+1}">
+            <button class="sok ${s.done?"on":""}" data-ok="${i}-${j}" aria-label="${s.done?"Отменить подход":"Подход сделан"}">✓</button></div>`).join("")}
+        </div>
+        <div class="row between"><button class="link" data-addset="${i}">+ подход</button>${ex.sets.length>1?`<button class="link" data-delset="${i}" style="color:var(--muted)">− подход</button>`:""}</div>
+      </section>`}).join("")}
+    <div class="card" style="display:flex;gap:8px"><input type="text" id="w-newex" placeholder="Добавить упражнение" style="flex:1"><button class="btn" id="w-addex">+</button></div>
+    <div id="w-end" class="grid2"><button class="btn danger" id="w-cancel">Отменить</button><button class="btn primary" id="w-finish">Завершить</button></div>`;
+  const app=$("#app");
+  app.querySelectorAll("input[data-ex]").forEach(inp=>inp.oninput=()=>{a.exercises[+inp.dataset.ex].sets[+inp.dataset.set][inp.dataset.f]=inp.value;saveActive()});
+  app.querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>{
+    const[i,j]=b.dataset.ok.split("-").map(Number);const ex=a.exercises[i],s=ex.sets[j];
+    if(!s.done&&!s.r){const rr=$(`#r-${i}-${j}`);rr&&rr.focus();toast("Впиши повторы");return}
+    s.done=!s.done;
+    if(s.done){
+      // подставить вес в следующий пустой подход
+      const nx=ex.sets[j+1];if(nx&&!nx.done&&!nx.w)nx.w=s.w;
+      startRest(ex.rest);
+    }
+    saveActive();renderActive();
+  });
+  app.querySelectorAll("[data-addset]").forEach(b=>b.onclick=()=>{const ex=a.exercises[+b.dataset.addset];const l=ex.sets[ex.sets.length-1];ex.sets.push({w:l?l.w:"",r:"",done:false});saveActive();renderActive()});
+  app.querySelectorAll("[data-delset]").forEach(b=>b.onclick=()=>{const ex=a.exercises[+b.dataset.delset];ex.sets.pop();saveActive();renderActive()});
+  $("#w-addex").onclick=()=>{const n=$("#w-newex").value.trim();if(!n)return;a.exercises.push({name:n,target:1,rmin:8,rmax:12,bw:BW_RE.test(n),step:2.5,rest:90,sets:[{w:"",r:"",done:false}]});saveActive();renderActive()};
+  $("#w-cancel").onclick=()=>{
+    $("#w-end").outerHTML=`<div class="confirm"><div>Отменить тренировку? Записанные подходы не сохранятся.</div><div class="grid2"><button class="btn" id="c-no">Назад</button><button class="btn danger" id="c-yes">Отменить</button></div></div>`;
+    $("#c-no").onclick=renderActive;$("#c-yes").onclick=()=>{ACTIVE=null;saveActive();drawRest();render();toast("Тренировка отменена")};
+  };
+  $("#w-finish").onclick=finishWorkout;
+  drawRest();
+}
+
+function finishWorkout(){
+  const a=ACTIVE;
+  const exercises=a.exercises.map(ex=>({name:ex.name,sets:ex.sets.filter(s=>s.done).map(s=>({w:parseNum(s.w),r:Math.round(parseNum(s.r))}))})).filter(e=>e.sets.length);
+  if(!exercises.length){toast("Нет ни одного сделанного подхода");return}
+  // рекорды: лучший расчётный максимум против всей прошлой истории
+  const records=[];
+  for(const ex of exercises){
+    const best=Math.max(...ex.sets.map(s=>e1rm(s.w,s.r)));if(!best)continue;
+    const k=nkey(ex.name);let prev=0;
+    DB.workouts.forEach(w=>w.exercises.forEach(x=>{if(nkey(x.name)===k)x.sets.forEach(s=>prev=Math.max(prev,e1rm(s.w,s.r)))}));
+    if(prev&&best>prev+0.01)records.push(`${ex.name}: ≈${fmtKg(best)} кг (было ${fmtKg(prev)})`);
+  }
+  const w={id:a.id,planId:a.planId,title:a.title,date:a.date,startedAt:a.startedAt,finishedAt:Date.now(),exercises,updated:Date.now()};
+  DB.workouts.push(w);ACTIVE=null;saveActive();save();drawRest();render();
+  const sets=exercises.reduce((n,e)=>n+e.sets.length,0),vol=exercises.reduce((n,e)=>n+e.sets.reduce((m,s)=>m+s.w*s.r,0),0);
+  sheet(`<h2>Тренировка записана</h2>
+    <div class="stats"><div><b>${Math.round((w.finishedAt-w.startedAt)/60000)}</b><span>минут</span></div><div><b>${sets}</b><span>подходов</span></div><div><b>${Math.round(vol).toLocaleString("ru-RU")}</b><span>кг объём</span></div></div>
+    ${records.length?`<div class="card" style="background:var(--soft);border:0"><h3>Новые рекорды</h3><ul style="margin:0;padding-left:20px">${records.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></div>`:""}
+    <button class="btn primary block" id="fw-ok">Готово</button>`,()=>{$("#fw-ok").onclick=closeSheet});
+}
+
+function allExerciseNames(){
+  const m=new Map();
+  [...DB.workouts].sort((a,b)=>b.startedAt-a.startedAt).forEach(w=>w.exercises.forEach(x=>{const k=nkey(x.name);if(!m.has(k))m.set(k,x.name)}));
+  return[...m.values()];
+}
+function exerciseHistory(name){
+  const k=nkey(name);
+  return[...DB.workouts].sort((a,b)=>a.startedAt-b.startedAt).map(w=>{
+    const ex=w.exercises.find(x=>nkey(x.name)===k);if(!ex||!ex.sets.length)return null;
+    const best=ex.sets.reduce((b,s)=>e1rm(s.w,s.r)>e1rm(b.w,b.r)?s:b,ex.sets[0]);
+    return{date:w.date,t:w.startedAt,best,e:e1rm(best.w,best.r),maxR:Math.max(...ex.sets.map(s=>s.r)),sets:ex.sets};
+  }).filter(Boolean);
+}
+const shortDate=iso=>{const d=parseISO(iso);return `${d.getDate()} ${MON_GEN[d.getMonth()].slice(0,3)}`};
+
+/* Линейный график одного ряда. points: [{x:ms, y, label}] */
+function lineChart(id,points,unit){
+  if(points.length<2)return `<p class="small muted" style="margin:0">Для графика нужно хотя бы две записи.</p>`;
+  const W=320,H=150,L=38,R=12,T=12,B=24;
+  const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+  let y0=Math.min(...ys),y1=Math.max(...ys);if(y1-y0<1){y0-=1;y1+=1}
+  const padY=(y1-y0)*0.15;y0=Math.max(0,y0-padY);y1+=padY;
+  const x0=Math.min(...xs),x1=Math.max(...xs)||x0+1;
+  const X=x=>L+(x1===x0?0.5:(x-x0)/(x1-x0))*(W-L-R),Y=y=>T+(1-(y-y0)/(y1-y0))*(H-T-B);
+  const ticks=[y0,(y0+y1)/2,y1];
+  const d=points.map((p,i)=>(i?"L":"M")+X(p.x).toFixed(1)+" "+Y(p.y).toFixed(1)).join(" ");
+  const last=points[points.length-1];
+  return `<figure class="chart" id="${id}">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="График: ${esc(points.map(p=>p.label).join("; "))}">
+      ${ticks.map(t=>`<line x1="${L}" x2="${W-R}" y1="${Y(t)}" y2="${Y(t)}" class="cg"/><text x="${L-6}" y="${Y(t)+4}" class="ct" text-anchor="end">${Math.round(t)}</text>`).join("")}
+      <text x="${L}" y="${H-6}" class="ct">${esc(shortDate(isoDate(new Date(x0))))}</text>
+      <text x="${W-R}" y="${H-6}" class="ct" text-anchor="end">${esc(shortDate(isoDate(new Date(x1))))}</text>
+      <path d="${d}" class="cl"/>
+      ${points.map((p,i)=>`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${i===points.length-1?5:4}" class="cp ${i===points.length-1?"cpl":""}"/>`).join("")}
+      ${points.map((p,i)=>`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="14" class="chit" data-pt="${i}"><title>${esc(p.label)}</title></circle>`).join("")}
+    </svg>
+    <figcaption class="small muted" data-cap>${esc(last.label)}</figcaption></figure>`;
+}
+function bindChart(id,points){
+  const f=document.getElementById(id);if(!f)return;
+  f.querySelectorAll("[data-pt]").forEach(c=>{const show=()=>{f.querySelector("[data-cap]").textContent=points[+c.dataset.pt].label};c.addEventListener("click",show);c.addEventListener("mouseenter",show)});
+}
+
+function renderGymHome(){
+  const today=isoDate(new Date());
+  const plans=gymPlans();
+  const todays=dayInfo(today).list.filter(e=>e.t==="gym"&&e.ref).map(e=>e.ref);
+  const d30=Date.now()-30*864e5;
+  const n30=DB.workouts.filter(w=>w.startedAt>=d30).length;
+  const names=allExerciseNames();
+  if(!UI.exSel||!names.some(n=>nkey(n)===nkey(UI.exSel)))UI.exSel=names[0]||"";
+  const hist=UI.exSel?exerciseHistory(UI.exSel):[];
+  const exPts=hist.map(h=>({x:h.t,y:h.e,label:`${shortDate(h.date)}: ${h.best.w?fmtKg(h.best.w)+" кг × ":""}${h.best.r} → ≈${fmtKg(h.e)} кг`}));
+  const bwAll=[...DB.bodyweight].sort((a,b)=>a.date.localeCompare(b.date));
+  const bwPts=bwAll.map(b=>({x:parseISO(b.date).getTime(),y:b.kg,label:`${shortDate(b.date)}: ${fmtKg(b.kg)} кг`}));
+  const bwLast=bwAll[bwAll.length-1];
+  const bwWeekAgo=bwAll.filter(b=>b.date<=isoDate(new Date(Date.now()-7*864e5))).pop();
+  const ws=[...DB.workouts].sort((a,b)=>b.startedAt-a.startedAt);
+  $("#app").innerHTML=`
+    <div class="row between"><h1>Зал</h1><span class="small muted">за 30 дней: ${n30} ${n30%10===1&&n30%100!==11?"тренировка":n30%10>=2&&n30%10<=4&&(n30%100<10||n30%100>=20)?"тренировки":"тренировок"}</span></div>
+    <section class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="margin:0">Начать тренировку</h3>
+      ${plans.length?plans.map(([k,p])=>`<button class="btn ${todays.includes(k)?"primary":""} block startw" data-start="${k}" style="text-align:left;display:flex;justify-content:space-between;gap:8px"><span>${esc(p.title)}</span><span class="small" style="opacity:.75;font-weight:500;white-space:nowrap">${todays.includes(k)?"сегодня":parsePlan(k).length+" упр."}</span></button>`).join("")
+        :`<p class="small muted" style="margin:0">Нет планов тренировок. Во вкладке «Планы» создай план с цветом «Зал» и упражнениями вида <code>1. **Присед** — 4×5–8</code>.</p>`}
+    </section>
+    <section class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="margin:0">Прогресс в упражнении</h3>
+      ${names.length?`<select id="g-ex" aria-label="Упражнение">${names.map(n=>`<option ${nkey(n)===nkey(UI.exSel)?"selected":""}>${esc(n)}</option>`).join("")}</select>
+        <div class="small muted">Расчётный максимум на 1 повтор по лучшему подходу</div>
+        ${lineChart("ch-ex",exPts)}
+        <ul class="hist">${hist.slice(-5).reverse().map(h=>`<li><span>${shortDate(h.date)}</span><span>${h.sets.map(s=>(s.w?fmtKg(s.w)+"×":"")+s.r).join(" · ")}</span></li>`).join("")}</ul>`
+      :`<p class="small muted" style="margin:0">Появится после первой записанной тренировки.</p>`}
+    </section>
+    <section class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="margin:0">Вес тела</h3>
+      <div class="row" style="flex-wrap:nowrap"><input type="text" id="bw-in" inputmode="decimal" placeholder="${bwLast?fmtKg(bwLast.kg):"кг"}" aria-label="Вес тела, кг" style="flex:1"><button class="btn primary" id="bw-add">Записать</button></div>
+      ${bwLast?`<div class="small">Сейчас <b>${fmtKg(bwLast.kg)} кг</b>${bwWeekAgo&&bwWeekAgo!==bwLast?` · за неделю ${bwLast.kg-bwWeekAgo.kg<=0?"−":"+"}${fmtKg(Math.abs(bwLast.kg-bwWeekAgo.kg))} кг`:""}</div>`:""}
+      ${bwPts.length?lineChart("ch-bw",bwPts):`<p class="small muted" style="margin:0">Взвешивайся утром натощак, 2–3 раза в неделю.</p>`}
+    </section>
+    <section style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:4px 2px 0">История</h3>
+      ${ws.length?`<ul class="list">${ws.slice(0,UI.histAll?999:8).map(w=>`<li><button class="ev" data-wk="${w.id}" style="--c:var(--gym);grid-template-columns:86px 4px 1fr auto">
+        <span class="t">${shortDate(w.date)}</span><span class="bar"></span>
+        <span><span class="what">${esc(w.title)}</span><span class="note" style="display:block">${Math.round((w.finishedAt-w.startedAt)/60000)} мин · ${w.exercises.reduce((n,e)=>n+e.sets.length,0)} подходов</span></span><span class="chev">›</span></button></li>`).join("")}</ul>
+        ${ws.length>8&&!UI.histAll?`<button class="link" id="h-all">Показать все (${ws.length})</button>`:""}`
+      :`<div class="card empty">Пока пусто</div>`}
+    </section>`;
+  $("#app").querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>startWorkout(b.dataset.start));
+  const sel=$("#g-ex");if(sel)sel.onchange=()=>{UI.exSel=sel.value;render()};
+  bindChart("ch-ex",exPts);bindChart("ch-bw",bwPts);
+  $("#bw-add").onclick=()=>{
+    const kg=parseNum($("#bw-in").value);if(!(kg>20&&kg<400)){toast("Впиши вес в кг");return}
+    const cur=DB.bodyweight.find(b=>b.date===today);
+    if(cur){cur.kg=kg;cur.updated=Date.now()}else DB.bodyweight.push({id:uid(),date:today,kg,updated:Date.now()});
+    save();render();toast("Записано");
+  };
+  const ha=$("#h-all");if(ha)ha.onclick=()=>{UI.histAll=true;render()};
+  $("#app").querySelectorAll("[data-wk]").forEach(b=>b.onclick=()=>openWorkout(b.dataset.wk));
+}
+
+function openWorkout(id){
+  const w=DB.workouts.find(x=>x.id===id);if(!w)return;
+  const vol=w.exercises.reduce((n,e)=>n+e.sets.reduce((m,s)=>m+s.w*s.r,0),0);
+  sheet(`<div class="head" style="--c:var(--gym)"><div class="sw"></div><div style="flex:1">
+      <div class="tm">${shortDate(w.date)} · ${new Date(w.startedAt).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})}</div><h2 style="margin-top:2px">${esc(w.title)}</h2></div></div>
+    <div class="stats"><div><b>${Math.round((w.finishedAt-w.startedAt)/60000)}</b><span>минут</span></div><div><b>${w.exercises.reduce((n,e)=>n+e.sets.length,0)}</b><span>подходов</span></div><div><b>${Math.round(vol).toLocaleString("ru-RU")}</b><span>кг объём</span></div></div>
+    <ul class="hist">${w.exercises.map(e=>`<li><span>${esc(e.name)}</span><span>${e.sets.map(s=>(s.w?fmtKg(s.w)+"×":"")+s.r).join(" · ")}</span></li>`).join("")}</ul>
+    <div id="wk-del"><button class="btn danger block" id="wk-delb">Удалить тренировку</button></div>`,()=>{
+    $("#wk-delb").onclick=()=>{
+      $("#wk-del").innerHTML=`<div class="confirm"><div>Удалить эту тренировку из истории?</div><div class="grid2"><button class="btn" id="c-no">Отмена</button><button class="btn danger" id="c-yes">Удалить</button></div></div>`;
+      $("#c-no").onclick=()=>openWorkout(id);
+      $("#c-yes").onclick=()=>{delItems("workouts",[id]);save();closeSheet();render();toast("Удалено")};
+    };
+  });
 }
 
 /* ================== СИНХРОНИЗАЦИЯ ==================
