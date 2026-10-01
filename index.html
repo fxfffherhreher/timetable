@@ -188,6 +188,23 @@ body.resting{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px))}
 .chart .cp{fill:var(--gym);stroke:var(--card);stroke-width:2}.chart .chit{fill:transparent;cursor:pointer}
 .chart figcaption{margin-top:4px}
 
+.ltiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ltile{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 12px 14px;min-height:190px;display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left}
+.ltile:focus-visible{outline:2px solid var(--c);outline-offset:2px}
+.lt-head{display:flex;align-items:center;gap:8px;min-width:0}
+.lt-dot{flex:none;width:22px;height:22px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:800}
+.lt-dot.big{width:40px;height:40px;font-size:18px}
+.lt-title{font-weight:750;font-size:15px;color:color-mix(in srgb,var(--c) 70%,var(--ink));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lt-items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.lt-items li{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.3}
+.lt-items li span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.lt-check{flex:none;width:18px;height:18px;margin-top:1px;border-radius:5px;border:2px solid var(--c);background:none;padding:0}
+.lt-more{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:auto}
+.lt-empty{flex:1;display:grid;place-items:center;color:var(--muted);font-size:14px;text-align:center}
+.fab{position:fixed;right:20px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:12;width:58px;height:58px;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:32px;font-weight:300;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.25);display:grid;place-items:center}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.swatches button{width:36px;height:36px;border-radius:50%;background:var(--c);border:3px solid var(--card);box-shadow:0 0 0 1px var(--line)}
+.swatches button[aria-checked="true"]{box-shadow:0 0 0 2px var(--ink)}
 .empty{padding:18px 14px;color:var(--muted);text-align:center}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.5}}}
 @media (max-width:400px){.ev{grid-template-columns:76px 4px 1fr auto;gap:10px;padding:11px 12px}.ev .t{font-size:11.5px}}
@@ -216,7 +233,7 @@ const KEY="moya-nedelya-v1";
 const uid=()=>Math.random().toString(36).slice(2,10);
 const emptyWeek=()=>Array.from({length:7},()=>[]);
 function makeDefault(){
-  return{v:2,weeks:{odd:emptyWeek(),even:emptyWeek()},dated:{},workouts:[],bodyweight:[],plans:{},tasks:[],deletedTasks:{},settings:{invert:false},schedAt:0};
+  return{v:2,weeks:{odd:emptyWeek(),even:emptyWeek()},dated:{},workouts:[],bodyweight:[],lists:[],listItems:[],plans:{},tasks:[],deletedTasks:{},settings:{invert:false},schedAt:0};
 }
 function isEmptySchedule(){return !DB.weeks.odd.some(d=>d.length)&&!DB.weeks.even.some(d=>d.length)}
 let DB;
@@ -227,7 +244,7 @@ function load(){
 function normalize(d){
   const b=makeDefault();
   d.weeks=d.weeks||b.weeks;d.plans=d.plans||{};d.tasks=d.tasks||[];d.deletedTasks=d.deletedTasks||{};
-  d.settings=d.settings||b.settings;d.dated=d.dated||{};d.workouts=d.workouts||[];d.bodyweight=d.bodyweight||[];d.schedAt=d.schedAt||0;
+  d.settings=d.settings||b.settings;d.dated=d.dated||{};d.workouts=d.workouts||[];d.bodyweight=d.bodyweight||[];d.lists=d.lists||[];d.listItems=d.listItems||[];d.schedAt=d.schedAt||0;
   d.tasks.forEach(t=>{if(!t.updated)t.updated=t.doneAt||t.created||0});
   return d;
 }
@@ -572,6 +589,7 @@ function bindPrio(id,get,set){document.querySelectorAll(`#${id} [data-pr]`).forE
 const MONTHS=["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 const MONTHS_GEN=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
 function renderTasks(){
+  if(UI.tview==="lists")return renderLists();
   const today=isoDate(new Date());
   if(!UI.tview)UI.tview="list";
   if(UI.newPr==null)UI.newPr=2;
@@ -580,7 +598,7 @@ function renderTasks(){
   const month=UI.tview==="month";
   $("#app").innerHTML=`
     <div class="row between"><h1>Задачи</h1>
-      <div class="row" role="group" aria-label="Вид"><button class="pill" id="v-list" aria-pressed="${!month}">Список</button><button class="pill" id="v-month" aria-pressed="${month}">Месяц</button></div></div>
+      ${tasksSwitch()}</div>
     <form class="card" id="tf" style="display:flex;flex-direction:column;gap:10px">
       <div class="addtask"><input type="text" id="t-text" placeholder="${month?"Задача на "+fmtLong(UI.selDay):"Что сделать?"}" autocomplete="off"><button class="btn primary" type="submit">Добавить</button></div>
       ${prioPicker("t-pr",UI.newPr)}
@@ -588,8 +606,7 @@ function renderTasks(){
         <button type="button" class="link" id="t-today">сегодня</button><button type="button" class="link" id="t-tom">завтра</button></div>`}
     </form>
     ${month?monthHTML(today):listHTML(today)}`;
-  $("#v-list").onclick=()=>{UI.tview="list";render()};
-  $("#v-month").onclick=()=>{UI.tview="month";render()};
+  bindTasksSwitch();
   bindPrio("t-pr",()=>UI.newPr,v=>UI.newPr=v);
   $("#tf").onsubmit=ev=>{ev.preventDefault();const text=$("#t-text").value.trim();if(!text)return;
     const due=month?UI.selDay:($("#t-due").value||null);
@@ -754,7 +771,7 @@ function mergeIn(inc){
   const tomb={...DB.deletedTasks};
   for(const[id,ts] of Object.entries(inc.deletedTasks||{}))tomb[id]=Math.max(tomb[id]||0,ts);
   const stat={};
-  for(const coll of ["tasks","workouts","bodyweight"]){
+  for(const coll of ["tasks","workouts","bodyweight","lists","listItems"]){
     const map=new Map();let added=0,updated=0,removed=0;
     (DB[coll]||[]).forEach(t=>map.set(t.id,t));
     (inc[coll]||[]).forEach(t=>{const cur=map.get(t.id);
@@ -1046,6 +1063,136 @@ function openWorkout(id){
       $("#wk-del").innerHTML=`<div class="confirm"><div>Удалить эту тренировку из истории?</div><div class="grid2"><button class="btn" id="c-no">Отмена</button><button class="btn danger" id="c-yes">Удалить</button></div></div>`;
       $("#c-no").onclick=()=>openWorkout(id);
       $("#c-yes").onclick=()=>{delItems("workouts",[id]);save();closeSheet();render();toast("Удалено")};
+    };
+  });
+}
+
+/* ================== СПИСКИ ==================
+   Свои списки с цветом. DB.lists — списки, DB.listItems — пункты
+   (отдельно, чтобы пункты с разных устройств объединялись по одному). */
+const LCOLORS=["gym","food","study","uni","pool","rest","chores","drive"];
+const OLD_KIND_COLOR={shop:"food",wish:"rest",plain:"study"};
+const listColor=l=>l.color||OLD_KIND_COLOR[l.kind]||"uni";
+const listItems=lid=>DB.listItems.filter(i=>i.listId===lid);
+const fmtRub=n=>Math.round(n).toLocaleString("ru-RU")+" ₽";
+const safeUrl=u=>/^https?:\/\//i.test(u||"")?u:"";
+const byItemOrder=(a,b)=>(a.done-b.done)||(a.created||0)-(b.created||0);
+function tasksSwitch(){
+  const v=UI.tview||"list";
+  return `<div class="row" role="group" aria-label="Вид">${[["list","Список"],["month","Месяц"],["lists","Списки"]].map(([k,n])=>`<button class="pill" data-tv="${k}" id="v-${k}" aria-pressed="${v===k}">${n}</button>`).join("")}</div>`;
+}
+function bindTasksSwitch(){document.querySelectorAll("[data-tv]").forEach(b=>b.onclick=()=>{UI.tview=b.dataset.tv;UI.listOpen=null;render()})}
+function toggleItem(id){const i=DB.listItems.find(x=>x.id===id);if(!i)return;i.done=!i.done;i.updated=Date.now();save();render()}
+
+function renderLists(){
+  if(UI.listOpen&&DB.lists.some(l=>l.id===UI.listOpen))return renderListOpen(UI.listOpen);
+  const lists=[...DB.lists].sort((a,b)=>(a.created||0)-(b.created||0));
+  $("#app").innerHTML=`
+    <div class="row between"><h1>Задачи</h1>${tasksSwitch()}</div>
+    ${lists.length?`<div class="ltiles">${lists.map(l=>{
+      const it=listItems(l.id).sort(byItemOrder),open=it.filter(i=>!i.done);
+      const shown=open.slice(0,6),more=open.length-shown.length,done=it.length-open.length;
+      return `<div class="ltile" data-lo="${l.id}" style="--c:var(--${listColor(l)})" role="button" tabindex="0" aria-label="Открыть список ${esc(l.title)}">
+        <div class="lt-head"><span class="lt-dot">${esc((l.title.trim()[0]||"•").toUpperCase())}</span><span class="lt-title">${esc(l.title)}</span></div>
+        ${shown.length?`<ul class="lt-items">${shown.map(i=>`<li><button class="lt-check" data-tcheck="${i.id}" aria-label="Отметить: ${esc(i.text)}"></button><span>${esc(i.text)}</span></li>`).join("")}</ul>
+          ${more>0?`<div class="lt-more">ещё ${more}</div>`:""}`
+          :`<div class="lt-empty">${done?`Всё отмечено (${done})`:"Нет пунктов"}</div>`}
+      </div>`}).join("")}</div>`
+      :`<div class="card empty">Списков пока нет. Нажми «+», чтобы создать первый: покупки, желания, вещи в поездку — что угодно.</div>`}
+    <button class="fab" id="l-new" aria-label="Новый список">+</button>`;
+  bindTasksSwitch();
+  const app=$("#app");
+  app.querySelectorAll("[data-tcheck]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();toggleItem(b.dataset.tcheck)});
+  app.querySelectorAll("[data-lo]").forEach(t=>{const go=()=>{UI.listOpen=t.dataset.lo;render();window.scrollTo(0,0)};t.onclick=go;t.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}});
+  $("#l-new").onclick=()=>openListEditor(null);
+}
+
+function colorPicker(sel){
+  return `<div class="swatches" id="le-color" role="radiogroup" aria-label="Цвет">${LCOLORS.map(c=>`<button type="button" role="radio" data-c="${c}" aria-checked="${c===sel}" aria-label="${(TYPES[c]||[c])[0]}" style="--c:var(--${c})"></button>`).join("")}</div>`;
+}
+
+function itemRow(i,color){
+  const link=safeUrl(i.link);
+  const meta=[i.qty?esc(i.qty):"",i.price?fmtRub(i.price):"",i.note?esc(i.note):""].filter(Boolean).join(" · ");
+  return `<li class="task ${i.done?"done":""}" style="--pc:var(--${color})">
+    <button class="check ${i.done?"on":""}" data-itog="${i.id}" aria-label="${i.done?"Снять отметку":"Отметить"}"></button>
+    <button class="txt" data-iedit="${i.id}"><div>${esc(i.text)}</div>${meta?`<div class="due">${meta}</div>`:""}</button>
+    ${link?`<a class="x" href="${esc(link)}" target="_blank" rel="noopener" aria-label="Открыть ссылку" style="font-size:16px;text-decoration:none">↗</a>`:`<button class="x" data-idel="${i.id}" aria-label="Удалить">×</button>`}</li>`;
+}
+
+function renderListOpen(lid){
+  const l=DB.lists.find(x=>x.id===lid),color=listColor(l);
+  const it=listItems(lid).sort(byItemOrder);
+  const open=it.filter(i=>!i.done),done=it.filter(i=>i.done);
+  const known=[...new Set((l.history||[]).concat(it.map(i=>i.text)))].slice(-60);
+  const sum=open.reduce((s,i)=>s+(i.price||0),0);
+  $("#app").innerHTML=`
+    <div class="row between"><button class="link" id="lb">‹ Все списки</button><button class="link" id="ll-edit">Изменить</button></div>
+    <div class="row" style="gap:12px;flex-wrap:nowrap;--c:var(--${color})"><span class="lt-dot big">${esc((l.title.trim()[0]||"•").toUpperCase())}</span>
+      <div><h1 style="font-size:26px">${esc(l.title)}</h1><div class="small muted">${open.length} осталось${done.length?`, ${done.length} отмечено`:""}${sum?` · всего ${fmtRub(sum)}`:""}</div></div></div>
+    <form class="card addtask" id="li-add" style="display:grid">
+      <input type="text" id="li-text" list="li-known" placeholder="Новый пункт" autocomplete="off">
+      <button class="btn primary" type="submit">Добавить</button>
+      <datalist id="li-known">${known.map(t=>`<option value="${esc(t)}">`).join("")}</datalist>
+    </form>
+    <div class="small muted" style="margin-top:-6px">Можно сразу несколько через запятую: молоко, яйца, хлеб</div>
+    ${open.length?`<ul class="list">${open.map(i=>itemRow(i,color)).join("")}</ul>`:it.length?"":`<div class="card empty">Пусто. Добавь первый пункт сверху.</div>`}
+    ${done.length?`<div class="group-title">Отмечено (${done.length})</div><ul class="list">${done.map(i=>itemRow(i,color)).join("")}</ul>
+      <button class="link" id="li-clear" style="color:var(--danger);align-self:flex-start">Убрать отмеченные</button>`:""}`;
+  $("#lb").onclick=()=>{UI.listOpen=null;render()};
+  $("#ll-edit").onclick=()=>openListEditor(lid);
+  $("#li-add").onsubmit=ev=>{ev.preventDefault();const raw=$("#li-text").value.trim();if(!raw)return;
+    const parts=raw.split(",").map(s=>s.trim()).filter(Boolean);
+    const now=Date.now();parts.forEach((t,k)=>DB.listItems.push({id:uid(),listId:lid,text:t,done:false,created:now+k,updated:now+k}));
+    save();render();setTimeout(()=>$("#li-text")&&$("#li-text").focus(),0)};
+  const app=$("#app");
+  app.querySelectorAll("[data-itog]").forEach(b=>b.onclick=()=>toggleItem(b.dataset.itog));
+  app.querySelectorAll("[data-idel]").forEach(b=>b.onclick=()=>{delItems("listItems",[b.dataset.idel]);save();render()});
+  app.querySelectorAll("[data-iedit]").forEach(b=>b.onclick=()=>openItemEditor(b.dataset.iedit));
+  const cl=$("#li-clear");if(cl)cl.onclick=()=>{
+    const ids=done.map(i=>i.id);
+    l.history=[...new Set((l.history||[]).concat(done.map(i=>i.text)))].slice(-60);l.updated=Date.now();
+    delItems("listItems",ids);save();render();toast("Убрано: "+ids.length)};
+}
+
+function openItemEditor(id){
+  const i=DB.listItems.find(x=>x.id===id);if(!i)return;
+  sheet(`<h2>Пункт</h2>
+    <div class="field"><label for="ie-text">Название</label><input type="text" id="ie-text" value="${esc(i.text)}"></div>
+    <div class="grid2"><div class="field"><label for="ie-qty">Сколько</label><input type="text" id="ie-qty" value="${esc(i.qty||"")}" placeholder="2 шт, 1 кг"></div>
+      <div class="field"><label for="ie-price">Цена, ₽</label><input type="text" id="ie-price" inputmode="decimal" value="${i.price||""}"></div></div>
+    <div class="field"><label for="ie-link">Ссылка</label><input type="text" id="ie-link" inputmode="url" autocapitalize="off" value="${esc(i.link||"")}" placeholder="https://"></div>
+    <div class="field"><label for="ie-note">Заметка</label><input type="text" id="ie-note" value="${esc(i.note||"")}"></div>
+    <button class="btn primary block" id="ie-save">Сохранить</button>
+    <button class="btn danger block" id="ie-delb">Удалить пункт</button>`,()=>{
+    $("#ie-save").onclick=()=>{
+      i.text=$("#ie-text").value.trim()||i.text;i.note=$("#ie-note").value.trim();i.qty=$("#ie-qty").value.trim();
+      i.price=parseNum($("#ie-price").value)||0;const u=$("#ie-link").value.trim();i.link=u&&!/^https?:\/\//i.test(u)?"https://"+u:u;
+      i.updated=Date.now();save();closeSheet();render()};
+    $("#ie-delb").onclick=()=>{delItems("listItems",[id]);save();closeSheet();render()};
+  });
+}
+
+function openListEditor(lid){
+  const l=lid?DB.lists.find(x=>x.id===lid):null;
+  let color=l?listColor(l):LCOLORS[DB.lists.length%LCOLORS.length];
+  sheet(`<h2>${l?"Список":"Новый список"}</h2>
+    <div class="field"><label for="le-title">Название</label><input type="text" id="le-title" value="${esc(l?l.title:"")}" placeholder="Например, Покупки, Хочу, В поездку" autocomplete="off"></div>
+    <div class="field"><label>Цвет</label>${colorPicker(color)}</div>
+    <button class="btn primary block" id="le-save">${l?"Сохранить":"Создать"}</button>
+    ${l?`<div id="le-del"><button class="btn danger block" id="le-delb">Удалить список</button></div>`:""}`,()=>{
+    document.querySelectorAll("#le-color [data-c]").forEach(b=>b.onclick=()=>{color=b.dataset.c;document.querySelectorAll("#le-color [data-c]").forEach(x=>x.setAttribute("aria-checked",x.dataset.c===color))});
+    if(!l)setTimeout(()=>$("#le-title")&&$("#le-title").focus(),50);
+    $("#le-save").onclick=()=>{
+      const title=$("#le-title").value.trim();if(!title){$("#le-title").focus();toast("Впиши название");return}
+      if(l){l.title=title;l.color=color;l.updated=Date.now()}
+      else{const n={id:uid(),title,color,created:Date.now(),updated:Date.now()};DB.lists.push(n)}
+      save();closeSheet();render()};
+    const d=$("#le-delb");if(d)d.onclick=()=>{
+      const n=listItems(lid).length;
+      $("#le-del").innerHTML=`<div class="confirm"><div>Удалить «${esc(l.title)}»${n?` вместе с ${n} пунктами`:""}?</div><div class="grid2"><button class="btn" id="c-no">Отмена</button><button class="btn danger" id="c-yes">Удалить</button></div></div>`;
+      $("#c-no").onclick=()=>openListEditor(lid);
+      $("#c-yes").onclick=()=>{delItems("listItems",listItems(lid).map(i=>i.id));delItems("lists",[lid]);UI.listOpen=null;save();closeSheet();render();toast("Список удалён")};
     };
   });
 }
