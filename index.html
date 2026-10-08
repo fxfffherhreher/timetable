@@ -205,6 +205,14 @@ body.resting{padding-bottom:calc(140px + env(safe-area-inset-bottom,0px))}
 .swatches{display:flex;gap:10px;flex-wrap:wrap}
 .swatches button{width:36px;height:36px;border-radius:50%;background:var(--c);border:3px solid var(--card);box-shadow:0 0 0 1px var(--line)}
 .swatches button[aria-checked="true"]{box-shadow:0 0 0 2px var(--ink)}
+.prog{display:flex;flex-direction:column;align-items:flex-start;gap:0}
+.prog .startw:disabled{opacity:.55}
+.exrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 8px 8px 14px}
+.exmain{background:none;border:0;text-align:left;padding:4px 0;display:flex;flex-direction:column;gap:1px;min-width:0}
+.exmain b{font-weight:650;overflow-wrap:anywhere}
+.exmv{display:flex;gap:4px}
+.exmv button{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:16px;padding:0}
+.exmv button:disabled{opacity:.3}
 .empty{padding:18px 14px;color:var(--muted);text-align:center}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.5}}}
 @media (max-width:400px){.ev{grid-template-columns:76px 4px 1fr auto;gap:10px;padding:11px 12px}.ev .t{font-size:11.5px}}
@@ -246,7 +254,34 @@ function normalize(d){
   d.weeks=d.weeks||b.weeks;d.plans=d.plans||{};d.tasks=d.tasks||[];d.deletedTasks=d.deletedTasks||{};
   d.settings=d.settings||b.settings;d.dated=d.dated||{};d.workouts=d.workouts||[];d.bodyweight=d.bodyweight||[];d.lists=d.lists||[];d.listItems=d.listItems||[];d.schedAt=d.schedAt||0;
   d.tasks.forEach(t=>{if(!t.updated)t.updated=t.doneAt||t.created||0});
+  // миграция: у планов «Зал» упражнения раньше жили только в тексте — один раз собираем их в exercises
+  for(const[k,p] of Object.entries(d.plans))if(p&&p.type==="gym"&&!Array.isArray(p.exercises))p.exercises=exercisesFromText(p.body,k);
   return d;
+}
+
+/* Упражнение программы «Зал»: {id,name,sets,repsMin,repsMax,restSec,stepKg,bodyweight,note}.
+   Из текста («1. **Присед со штангой** — 4×5–8») читаются только при миграции;
+   id детерминированные, чтобы миграция на разных устройствах давала одно и то же. */
+const BW_RE=/подтяг|брусья|гиперэкст|подъём ног|подъемы ног|подъёмы ног|отжим|скручив|планк/i;
+const nkey=s=>String(s).toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ").trim();
+function exercisesFromText(body,pid){
+  const out=[];
+  for(const line of String(body||"").split("\n")){
+    const m=line.match(/^\s*\d+[.)]\s+\*\*(.+?)\*\*(.*)$/);if(!m)continue;
+    const sr=m[2].match(/(\d+)(?:\s*[–-]\s*(\d+))?\s*[×xх]\s*(\d+)(?:\s*[–-]\s*(\d+))?/);
+    if(!sr)continue;
+    const name=m[1].trim(),bw=BW_RE.test(name);
+    const note=m[2].replace(sr[0],"").replace(/^[\s—–\-:,.;]+|[\s—–\-:,;]+$/g,"");
+    out.push({id:pid+"-"+(out.length+1),name,sets:+(sr[2]||sr[1]),repsMin:+sr[3],repsMax:+(sr[4]||sr[3]),
+      restSec:out.length===0?180:90,stepKg:bw?0:(/гантел|молот|махи|развед/i.test(name)?2:2.5),bodyweight:bw,note});
+  }
+  return out;
+}
+function deletePlan(k){
+  delete DB.plans[k];
+  for(const w of ["odd","even"])DB.weeks[w].forEach(dd=>dd.forEach(e=>{if(e.ref===k)delete e.ref}));
+  Object.values(DB.dated).forEach(dd=>dd.forEach(e=>{if(e.ref===k)delete e.ref}));
+  saveSched();
 }
 function saveSched(){DB.schedAt=Date.now();save()}
 function delItems(coll,ids){const now=Date.now();ids.forEach(id=>{DB.deletedTasks[id]=now});DB[coll]=DB[coll].filter(t=>!ids.includes(t.id))}
@@ -303,7 +338,7 @@ const ICONS={
 function renderTabs(){
   const names={sched:"Расписание",tasks:"Задачи",gym:"Зал",plans:"Планы",more:"Ещё"};
   $("#tabs").innerHTML=Object.keys(names).map(k=>`<button id="tab-${k}" data-tab="${k}" ${UI.tab===k?'aria-current="page"':""}>${ICONS[k]}${names[k]}</button>`).join("");
-  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{UI.tab=b.dataset.tab;render();window.scrollTo(0,0)});
+  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{UI.tab=b.dataset.tab;UI.gymEdit=null;render();window.scrollTo(0,0)});
 }
 function render(){renderTabs();({sched:renderSched,tasks:renderTasks,gym:renderGym,plans:renderPlans,more:renderMore})[UI.tab]();if(ACTIVE)drawRest()}
 
@@ -505,7 +540,7 @@ function openEvent(id,loc){
       <button class="btn primary" id="ev-edit">Изменить</button>
       ${plan?`<button class="btn" id="ev-plan">Изменить план</button>`:`<button class="btn" id="ev-close">Закрыть</button>`}
     </div>
-    ${plan&&plan.type==="gym"&&parsePlan(e.ref).length?`<button class="btn block" id="ev-start" style="background:var(--gym);color:#fff">${ACTIVE?"Открыть идущую тренировку":"Начать тренировку"}</button>`:""}`,()=>{
+    ${plan&&plan.type==="gym"&&planExercises(e.ref).length?`<button class="btn block" id="ev-start" style="background:var(--gym);color:#fff">${ACTIVE?"Открыть идущую тренировку":"Начать тренировку"}</button>`:""}`,()=>{
       const st=$("#ev-start");if(st)st.onclick=()=>{if(ACTIVE){closeSheet();UI.tab="gym";render()}else startWorkout(e.ref)};
       $("#ev-edit").onclick=()=>openEventEditor(id,loc);
       const p=$("#ev-plan");if(p)p.onclick=()=>openPlanEditor(e.ref);
@@ -692,8 +727,12 @@ function openPlan(k){
   const p=DB.plans[k];if(!p)return;
   sheet(`<div class="head" style="--c:var(${(TYPES[p.type]||TYPES.other)[1]})"><div class="sw"></div><h2 style="flex:1">${esc(p.title)}</h2></div>
     <div class="md">${md(p.body)}</div>
+    ${p.type==="gym"?`<div class="card" style="background:var(--soft);border:0"><h3>Упражнения программы</h3>
+      ${(p.exercises||[]).length?`<ol style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:4px">${p.exercises.map(e=>`<li><b>${esc(e.name)}</b> <span class="small muted">${exSummary(e)}</span></li>`).join("")}</ol>`:`<p class="small muted" style="margin:0">Пока нет</p>`}
+      <button class="link" id="pl-prog">Изменить программу</button></div>`:""}
     <div class="grid2"><button class="btn primary" id="pl-edit">Изменить</button><button class="btn" id="pl-close">Закрыть</button></div>`,()=>{
     $("#pl-edit").onclick=()=>openPlanEditor(k);$("#pl-close").onclick=closeSheet;
+    const pg=$("#pl-prog");if(pg)pg.onclick=()=>{closeSheet();UI.tab="gym";UI.gymEdit=k;render();window.scrollTo(0,0)};
   });
 }
 function openPlanEditor(k){
@@ -702,15 +741,19 @@ function openPlanEditor(k){
     <div class="field"><label for="p-title">Название</label><input type="text" id="p-title" value="${esc(p.title)}"></div>
     <div class="field"><label for="p-type">Цвет (тип)</label><select id="p-type">${Object.entries(TYPES).map(([t,[n]])=>`<option value="${t}" ${p.type===t?"selected":""}>${n}</option>`).join("")}</select></div>
     <div class="field"><label for="p-body">Текст</label><textarea id="p-body" style="min-height:320px">${esc(p.body)}</textarea>
-      <div class="small muted"># — заголовок, - — пункт, 1. — нумерация, **текст** — жирный</div></div>
+      <div class="small muted"># — заголовок, - — пункт, 1. — нумерация, **текст** — жирный</div>
+      ${p.type==="gym"&&Array.isArray(p.exercises)?`<div class="small muted">Это описание. Упражнения меняются во вкладке «Зал» → «Изменить программу».</div>`:""}</div>
     <button class="btn primary block" id="p-save">Сохранить</button>
     ${k?`<div id="pdel"><button class="btn danger block" id="p-del">Удалить план</button></div>`:""}`,()=>{
     $("#p-save").onclick=()=>{const title=$("#p-title").value.trim();if(!title){toast("Впиши название");return}
-      const key=k||("p"+uid());DB.plans[key]={title,type:$("#p-type").value,body:$("#p-body").value};saveSched();closeSheet();render();toast("План сохранён")};
+      const key=k||("p"+uid());const np={...(k?DB.plans[k]:{}),title,type:$("#p-type").value,body:$("#p-body").value};
+      // план впервые стал «Залом» — упражнения один раз собираем из текста, дальше только редактор программы
+      if(np.type==="gym"&&!Array.isArray(np.exercises))np.exercises=exercisesFromText(np.body,key);
+      DB.plans[key]=np;saveSched();closeSheet();render();toast("План сохранён")};
     const d=$("#p-del");if(d)d.onclick=()=>{
       $("#pdel").innerHTML=`<div class="confirm"><div>Удалить план? События останутся, но без подробностей.</div><div class="grid2"><button class="btn" id="c-no">Отмена</button><button class="btn danger" id="c-yes">Удалить</button></div></div>`;
       $("#c-no").onclick=()=>openPlanEditor(k);
-      $("#c-yes").onclick=()=>{delete DB.plans[k];for(const w of ["odd","even"])DB.weeks[w].forEach(dd=>dd.forEach(e=>{if(e.ref===k)delete e.ref}));saveSched();closeSheet();render();toast("План удалён")};
+      $("#c-yes").onclick=()=>{deletePlan(k);closeSheet();render();toast("План удалён")};
     };
   });
 }
@@ -793,30 +836,16 @@ function showImportResult(lines){
 }
 
 /* ================== ЗАЛ: ДНЕВНИК ТРЕНИРОВОК ==================
-   Упражнения берутся из текста планов типа «Зал» (строки вида
-   «1. **Присед со штангой** — 4×5–8»). Идущая тренировка хранится только
-   на этом устройстве; законченная попадает в DB.workouts и синхронизируется. */
+   Упражнения берутся из plan.exercises планов типа «Зал» (редактор — «Изменить
+   программу»). Идущая тренировка — снимок программы на момент старта, хранится
+   только на этом устройстве; законченная попадает в DB.workouts и синхронизируется. */
 const ACTIVE_KEY=KEY+"-active";
 let ACTIVE=null;
 try{ACTIVE=JSON.parse(localStorage.getItem(ACTIVE_KEY)||"null")}catch(e){}
 function saveActive(){try{ACTIVE?localStorage.setItem(ACTIVE_KEY,JSON.stringify(ACTIVE)):localStorage.removeItem(ACTIVE_KEY)}catch(e){}}
 
-const BW_RE=/подтяг|брусья|гиперэкст|подъём ног|подъемы ног|подъёмы ног|отжим|скручив|планк/i;
-const nkey=s=>String(s).toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ").trim();
-function parsePlan(pid){
-  const p=DB.plans[pid];if(!p)return[];
-  const out=[];
-  for(const line of String(p.body||"").split("\n")){
-    const m=line.match(/^\s*\d+[.)]\s+\*\*(.+?)\*\*(.*)$/);if(!m)continue;
-    const sr=m[2].match(/(\d+)(?:\s*[–-]\s*(\d+))?\s*[×xх]\s*(\d+)(?:\s*[–-]\s*(\d+))?/);
-    if(!sr)continue;
-    const name=m[1].trim(),sets=+(sr[2]||sr[1]),rmin=+sr[3],rmax=+(sr[4]||sr[3]);
-    const bw=BW_RE.test(name);
-    out.push({name,sets,rmin,rmax,bw,step:bw?0:(/гантел|молот|махи|развед/i.test(name)?2:2.5),rest:out.length===0?180:90});
-  }
-  return out;
-}
-const gymPlans=()=>Object.entries(DB.plans).filter(([k,p])=>p.type==="gym"&&parsePlan(k).length);
+const planExercises=pid=>(DB.plans[pid]&&DB.plans[pid].exercises)||[];
+const gymPlans=()=>Object.entries(DB.plans).filter(([k,p])=>p.type==="gym");
 
 const e1rm=(w,r)=>w>0&&r>0?(r===1?w:w*(1+r/30)):0;
 const fmtKg=n=>(Math.round(n*10)/10).toString().replace(".",",");
@@ -845,7 +874,11 @@ function suggest(ex){
 function startWorkout(pid){
   const p=DB.plans[pid];if(!p)return;
   if(ACTIVE){toast("Сначала заверши текущую тренировку");UI.tab="gym";render();return}
-  const exs=parsePlan(pid).map(e=>{const s=suggest(e);return{...e,target:e.sets,sets:Array.from({length:e.sets},()=>({w:s.w===""?"":String(s.w),r:"",done:false}))}});
+  // копия программы: правки программы во время тренировки её не трогают
+  const exs=planExercises(pid).map(e=>{
+    const ex={name:e.name,target:e.sets,rmin:e.repsMin,rmax:e.repsMax,bw:!!e.bodyweight,step:e.bodyweight?0:e.stepKg,rest:e.restSec,note:e.note||""};
+    const s=suggest(ex);return{...ex,sets:Array.from({length:e.sets},()=>({w:s.w===""?"":String(s.w),r:"",done:false}))}});
+  if(!exs.length){toast("В программе нет упражнений");return}
   ACTIVE={id:uid(),planId:pid,title:p.title,date:isoDate(new Date()),startedAt:Date.now(),exercises:exs,rest:null};
   saveActive();closeSheet();UI.tab="gym";render();window.scrollTo(0,0);
 }
@@ -878,7 +911,10 @@ function drawRest(){
 }
 
 /* ---------- экран «Зал» ---------- */
-function renderGym(){ACTIVE?renderActive():renderGymHome()}
+function renderGym(){
+  if(UI.gymEdit&&!DB.plans[UI.gymEdit])UI.gymEdit=null; // программу могли удалить (например, при синхронизации)
+  UI.gymEdit?renderProgEditor(UI.gymEdit):ACTIVE?renderActive():renderGymHome();
+}
 
 function renderActive(){
   const a=ACTIVE;
@@ -888,7 +924,8 @@ function renderActive(){
   $("#app").innerHTML=`
     <div class="row between"><h1 style="font-size:24px">${esc(a.title)}</h1><span class="small muted" id="w-elapsed">${mins} мин</span></div>
     <div class="wprog"><i style="width:${allSets?doneSets/allSets*100:0}%"></i></div>
-    <div class="small muted" style="margin-top:-6px">Подходов: ${doneSets} из ${allSets}</div>
+    <div class="row between small muted" style="margin-top:-6px"><span>Подходов: ${doneSets} из ${allSets}</span>
+      ${DB.plans[a.planId]?`<button class="link small" id="w-editprog">Изменить программу</button>`:""}</div>
     ${a.exercises.map((ex,i)=>{
       const last=lastFor(ex.name,a.id),sg=suggest(ex);
       const done=ex.sets.length&&ex.sets.every(s=>s.done);
@@ -896,6 +933,7 @@ function renderActive(){
         <div class="exhead"><div><div class="exname">${esc(ex.name)}</div>
           <div class="small muted">${ex.target} × ${ex.rmin}${ex.rmax!==ex.rmin?"–"+ex.rmax:""}${ex.bw?" · свой вес":""} · отдых ${ex.rest>=120?Math.round(ex.rest/60)+" мин":ex.rest+" с"}</div></div>
           ${done?'<span class="chip ok">готово</span>':""}</div>
+        ${ex.note?`<div class="small">${esc(ex.note)}</div>`:""}
         ${last?`<div class="small muted">Прошлый раз: ${last.sets.map(s=>(ex.bw&&!s.w?"":fmtKg(s.w)+"×")+s.r).join(" · ")}</div>`:""}
         <div class="small sug ${sg.up?"up":""}">${esc(sg.text)}</div>
         <div class="sets">
@@ -931,6 +969,7 @@ function renderActive(){
     $("#c-no").onclick=renderActive;$("#c-yes").onclick=()=>{ACTIVE=null;saveActive();drawRest();render();toast("Тренировка отменена")};
   };
   $("#w-finish").onclick=finishWorkout;
+  const ep=$("#w-editprog");if(ep)ep.onclick=()=>{UI.gymEdit=a.planId;render();window.scrollTo(0,0)};
   drawRest();
 }
 
@@ -1015,9 +1054,11 @@ function renderGymHome(){
   const ws=[...DB.workouts].sort((a,b)=>b.startedAt-a.startedAt);
   $("#app").innerHTML=`
     <div class="row between"><h1>Зал</h1><span class="small muted">за 30 дней: ${n30} ${n30%10===1&&n30%100!==11?"тренировка":n30%10>=2&&n30%10<=4&&(n30%100<10||n30%100>=20)?"тренировки":"тренировок"}</span></div>
-    <section class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="margin:0">Начать тренировку</h3>
-      ${plans.length?plans.map(([k,p])=>`<button class="btn ${todays.includes(k)?"primary":""} block startw" data-start="${k}" style="text-align:left;display:flex;justify-content:space-between;gap:8px"><span>${esc(p.title)}</span><span class="small" style="opacity:.75;font-weight:500;white-space:nowrap">${todays.includes(k)?"сегодня":parsePlan(k).length+" упр."}</span></button>`).join("")
-        :`<p class="small muted" style="margin:0">Нет планов тренировок. Во вкладке «Планы» создай план с цветом «Зал» и упражнениями вида <code>1. **Присед** — 4×5–8</code>.</p>`}
+    <section class="card" style="display:flex;flex-direction:column;gap:10px"><div class="row between"><h3 style="margin:0">Программы</h3><button class="link" id="g-newprog">+ Программа</button></div>
+      ${plans.length?plans.map(([k,p])=>{const n=planExercises(k).length;return `<div class="prog">
+        <button class="btn ${todays.includes(k)&&n?"primary":""} block startw" data-start="${k}" ${n?"":"disabled"} style="text-align:left;display:flex;justify-content:space-between;gap:8px"><span>${esc(p.title)}</span><span class="small" style="opacity:.75;font-weight:500;white-space:nowrap">${!n?"нет упражнений":(todays.includes(k)?"сегодня · ":"")+n+" упр."}</span></button>
+        <button class="link small" data-editprog="${k}">Изменить программу</button></div>`}).join("")
+        :`<p class="small muted" style="margin:0">Пока нет программ тренировок. Нажми «+ Программа».</p>`}
     </section>
     <section class="card" style="display:flex;flex-direction:column;gap:10px"><h3 style="margin:0">Прогресс в упражнении</h3>
       ${names.length?`<select id="g-ex" aria-label="Упражнение">${names.map(n=>`<option ${nkey(n)===nkey(UI.exSel)?"selected":""}>${esc(n)}</option>`).join("")}</select>
@@ -1039,6 +1080,8 @@ function renderGymHome(){
       :`<div class="card empty">Пока пусто</div>`}
     </section>`;
   $("#app").querySelectorAll("[data-start]").forEach(b=>b.onclick=()=>startWorkout(b.dataset.start));
+  $("#app").querySelectorAll("[data-editprog]").forEach(b=>b.onclick=()=>{UI.gymEdit=b.dataset.editprog;render();window.scrollTo(0,0)});
+  $("#g-newprog").onclick=openNewProgram;
   const sel=$("#g-ex");if(sel)sel.onchange=()=>{UI.exSel=sel.value;render()};
   bindChart("ch-ex",exPts);bindChart("ch-bw",bwPts);
   $("#bw-add").onclick=()=>{
@@ -1049,6 +1092,109 @@ function renderGymHome(){
   };
   const ha=$("#h-all");if(ha)ha.onclick=()=>{UI.histAll=true;render()};
   $("#app").querySelectorAll("[data-wk]").forEach(b=>b.onclick=()=>openWorkout(b.dataset.wk));
+}
+
+/* ---------- редактор программы ----------
+   Правки сразу пишутся в DB.plans[k].exercises и сохраняются как расписание (saveSched →
+   schedAt, синхронизация, «Загрузить копию»). Идущую тренировку (ACTIVE) не трогают. */
+const fmtRest=s=>s>=60?(s%60?Math.floor(s/60)+":"+pad(s%60):s/60)+" мин":s+" с";
+const repsTxt=e=>e.repsMin+(e.repsMax!==e.repsMin?"–"+e.repsMax:"");
+function exSummary(e){
+  return `${e.sets} × ${repsTxt(e)} · отдых ${fmtRest(e.restSec)}${e.bodyweight?" · свой вес":e.stepKg?` · +${fmtKg(e.stepKg)} кг`:""}`;
+}
+function renderProgEditor(k){
+  const p=DB.plans[k],exs=p.exercises||(p.exercises=[]);
+  $("#app").innerHTML=`
+    <div class="row between"><button class="link" id="pe-back">‹ ${ACTIVE?"К тренировке":"Зал"}</button><span class="small muted">программа</span></div>
+    <h1 style="font-size:24px">${esc(p.title)}</h1>
+    ${ACTIVE?`<div class="confirm small">Идёт тренировка «${esc(ACTIVE.title)}». Изменения программы применятся к следующей тренировке.</div>`:""}
+    <section class="card" style="display:flex;flex-direction:column;gap:10px">
+      <div class="field"><label for="pe-title">Название программы</label><input type="text" id="pe-title" value="${esc(p.title)}"></div>
+      <button class="btn block" id="pe-desc">${(p.body||"").trim()?"Изменить описание":"Добавить описание"} (разминка, техника, правила)</button>
+    </section>
+    <h3 style="margin:4px 2px -4px">Упражнения</h3>
+    ${exs.length?`<ul class="list" id="pe-list">${exs.map((e,i)=>`<li class="exrow">
+      <button class="exmain" data-exe="${e.id}"><b>${i+1}. ${esc(e.name)}</b><span class="small muted">${exSummary(e)}</span>${e.note?`<span class="small muted">${esc(e.note)}</span>`:""}</button>
+      <div class="exmv"><button data-up="${i}" ${i?"":"disabled"} aria-label="Выше">↑</button><button data-down="${i}" ${i<exs.length-1?"":"disabled"} aria-label="Ниже">↓</button><button data-exdel="${e.id}" aria-label="Удалить">×</button></div></li>`).join("")}</ul>`
+      :`<div class="card empty">Упражнений пока нет</div>`}
+    <button class="btn primary block" id="pe-add">+ Упражнение</button>
+    <div id="pe-delw" style="margin-top:12px"><button class="btn danger block" id="pe-del">Удалить программу</button></div>`;
+  $("#pe-back").onclick=()=>{UI.gymEdit=null;render();window.scrollTo(0,0)};
+  $("#pe-title").onchange=ev=>{const t=ev.target.value.trim();if(!t){ev.target.value=p.title;toast("Впиши название");return}p.title=t;saveSched();render();toast("Сохранено")};
+  $("#pe-desc").onclick=()=>openPlanEditor(k);
+  $("#pe-add").onclick=()=>openExEditor(k,null);
+  const app=$("#app");
+  app.querySelectorAll("[data-exe]").forEach(b=>b.onclick=()=>openExEditor(k,b.dataset.exe));
+  const move=(i,d)=>{[exs[i],exs[i+d]]=[exs[i+d],exs[i]];saveSched();renderProgEditor(k)};
+  app.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>move(+b.dataset.up,-1));
+  app.querySelectorAll("[data-down]").forEach(b=>b.onclick=()=>move(+b.dataset.down,1));
+  app.querySelectorAll("[data-exdel]").forEach(b=>b.onclick=()=>{
+    const e=exs.find(x=>x.id===b.dataset.exdel);if(!e)return;
+    sheet(`<h2>Удалить «${esc(e.name)}»?</h2><p class="small muted" style="margin:0">Упражнение уйдёт из программы. История и графики останутся.</p>
+      <div class="grid2"><button class="btn" id="c-no">Отмена</button><button class="btn danger" id="c-yes">Удалить</button></div>`,()=>{
+      $("#c-no").onclick=closeSheet;
+      $("#c-yes").onclick=()=>{p.exercises=p.exercises.filter(x=>x.id!==e.id);saveSched();closeSheet();render();toast("Упражнение удалено")};
+    });
+  });
+  $("#pe-del").onclick=()=>{
+    $("#pe-delw").innerHTML=`<div class="confirm"><div>Удалить программу «${esc(p.title)}»? События в расписании останутся, но без плана. История тренировок сохранится.</div><div class="grid2"><button class="btn" id="c-no">Отмена</button><button class="btn danger" id="c-yes">Удалить</button></div></div>`;
+    $("#c-no").onclick=()=>renderProgEditor(k);
+    $("#c-yes").onclick=()=>{deletePlan(k);UI.gymEdit=null;render();toast("Программа удалена")};
+  };
+}
+function openNewProgram(){
+  sheet(`<h2>Новая программа</h2>
+    <div class="field"><label for="np-title">Название</label><input type="text" id="np-title" placeholder="Например, Тренировка А"></div>
+    <button class="btn primary block" id="np-ok">Создать</button>`,()=>{
+    $("#np-title").focus();
+    $("#np-ok").onclick=()=>{const title=$("#np-title").value.trim();if(!title){toast("Впиши название");return}
+      const key="p"+uid();DB.plans[key]={title,type:"gym",body:"",exercises:[]};saveSched();
+      closeSheet();UI.tab="gym";UI.gymEdit=key;render();window.scrollTo(0,0)};
+  });
+}
+function historyCount(name){const k=nkey(name);return DB.workouts.filter(w=>w.exercises.some(x=>nkey(x.name)===k)).length}
+// перенести историю (и график) со старого названия на новое
+function renameHistory(from,to){
+  const k=nkey(from),now=Date.now();
+  DB.workouts.forEach(w=>{let ch=false;w.exercises.forEach(x=>{if(nkey(x.name)===k){x.name=to;ch=true}});if(ch)w.updated=now});
+  // идущая тренировка иначе записала бы подходы под старым названием и график снова разорвался бы
+  if(ACTIVE){ACTIVE.exercises.forEach(x=>{if(nkey(x.name)===k)x.name=to});saveActive()}
+  if(UI.exSel&&nkey(UI.exSel)===k)UI.exSel=to;
+}
+function openExEditor(k,id){
+  const p=DB.plans[k];if(!p)return;
+  const e0=id?p.exercises.find(x=>x.id===id):null;
+  const e=e0||{name:"",sets:3,repsMin:8,repsMax:12,restSec:90,stepKg:2.5,bodyweight:false,note:""};
+  const num=(fid,label,val,mode)=>`<div class="field"><label for="${fid}">${label}</label><input type="text" id="${fid}" inputmode="${mode||"numeric"}" value="${esc(val)}"></div>`;
+  sheet(`<h2>${e0?"Упражнение":"Новое упражнение"}</h2>
+    <div class="field"><label for="x-name">Название</label><input type="text" id="x-name" value="${esc(e.name)}" placeholder="Например, Жим лёжа"></div>
+    <div class="grid2">${num("x-sets","Подходы",e.sets)}${num("x-rest","Отдых, сек",e.restSec)}</div>
+    <div class="grid2">${num("x-rmin","Повторы от",e.repsMin)}${num("x-rmax","Повторы до",e.repsMax)}</div>
+    <label class="row"><input type="checkbox" id="x-bw" ${e.bodyweight?"checked":""}> Свой вес (вес — дополнительный)</label>
+    <div id="x-stepw">${num("x-step","Шаг прибавки веса, кг",fmtKg(e.stepKg||0),"decimal")}</div>
+    <div class="field"><label for="x-note">Заметка</label><input type="text" id="x-note" value="${esc(e.note)}" placeholder="Техника, хват, темп…"></div>
+    <div id="x-foot"><button class="btn primary block" id="x-save">Сохранить</button></div>`,()=>{
+    const bw=$("#x-bw"),stepw=$("#x-stepw");
+    const syncBw=()=>{stepw.style.display=bw.checked?"none":""};syncBw();bw.onchange=syncBw;
+    if(!e0)$("#x-name").focus();
+    $("#x-save").onclick=()=>{
+      const name=$("#x-name").value.trim().replace(/\s+/g," ");if(!name){toast("Впиши название");return}
+      const int=(fid,min,max)=>Math.min(max,Math.max(min,Math.round(parseNum($("#"+fid).value))));
+      let rmin=int("x-rmin",1,100),rmax=int("x-rmax",1,100);if(rmax<rmin)[rmin,rmax]=[rmax,rmin];
+      const val={name,sets:int("x-sets",1,20),repsMin:rmin,repsMax:rmax,restSec:int("x-rest",0,900),
+        stepKg:bw.checked?0:Math.min(50,Math.max(0,Math.round(parseNum($("#x-step").value)*4)/4)),bodyweight:bw.checked,note:$("#x-note").value.trim()};
+      const apply=moveHist=>{
+        if(moveHist)renameHistory(e0.name,name);
+        if(e0)Object.assign(e0,val);else p.exercises.push({id:uid(),...val});
+        saveSched();closeSheet();render();toast(moveHist?"Сохранено, история перенесена":"Сохранено");
+      };
+      const n=e0&&nkey(e0.name)!==nkey(name)?historyCount(e0.name):0;
+      if(!n)return apply(false);
+      $("#x-foot").innerHTML=`<div class="confirm"><div>У «${esc(e0.name)}» есть история: ${n} ${n%10===1&&n%100!==11?"тренировка":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"тренировки":"тренировок"}. Перенести её на «${esc(name)}», чтобы график не оборвался?</div>
+        <div class="grid2"><button class="btn" id="x-keep">Не переносить</button><button class="btn primary" id="x-move">Перенести</button></div></div>`;
+      $("#x-keep").onclick=()=>apply(false);$("#x-move").onclick=()=>apply(true);
+    };
+  });
 }
 
 function openWorkout(id){
